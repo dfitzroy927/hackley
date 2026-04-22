@@ -1256,8 +1256,6 @@ async function compileScript(source) {
 
   // Task 2 passed. Check whether Task 3 has been attempted:
   // "not attempted" = neither show_alert nor clear_alert was called.
-  const task3TouchedLow = log2.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert' || c[0] === 'play_beep');
-
   // --- Task 3: alert-triggering scenarios ---
   // Scenario A: average 0.30 → expect show_alert + play_beep.
   // Scenario B: average 0.70 → expect clear_alert (no show_alert).
@@ -1281,8 +1279,8 @@ async function compileScript(source) {
              errorMsg: runHigh.error };
   }
 
-  const lowCalled = logLow.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert');
-  const highCalled = logHigh.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert');
+  const lowCalled  = logLow.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert' || c[0] === 'play_beep');
+  const highCalled = logHigh.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert' || c[0] === 'play_beep');
   const task3Started = lowCalled || highCalled;
 
   if (task3Started) {
