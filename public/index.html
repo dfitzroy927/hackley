@@ -871,9 +871,9 @@
   <section id="tab-code" class="tab-content">
 
     <div class="code-progress" id="code-progress">
-      <div class="pill" data-task="1"><span class="marker">1</span><span>Connect model</span></div>
-      <div class="pill" data-task="2"><span class="marker">2</span><span>Rolling average</span></div>
-      <div class="pill" data-task="3"><span class="marker">3</span><span>Low-attention alert</span></div>
+      <div class="pill" role="button" tabindex="0" data-task="1"><span class="marker">1</span><span>Connect model</span></div>
+      <div class="pill" role="button" tabindex="0" data-task="2"><span class="marker">2</span><span>Rolling average</span></div>
+      <div class="pill" role="button" tabindex="0" data-task="3"><span class="marker">3</span><span>Low-attention alert</span></div>
     </div>
 
     <div class="code-status" id="code-status">
@@ -1071,10 +1071,12 @@ const taskState = {
 };
 
 function updateCodeStatus(state, extra) {
+  if (state !== 'live' && state !== 'error' && state !== 'needs-compile') {
+    console.warn(`updateCodeStatus: unknown state "${state}" — falling back to needs-compile`);
+  }
   const el = document.getElementById('code-status');
   const text = document.getElementById('code-status-text');
   const extraEl = document.getElementById('code-status-extra');
-  if (!el || !text || !extraEl) return;
   el.classList.remove('live', 'error');
   if (state === 'live') {
     el.classList.add('live');
@@ -1091,7 +1093,6 @@ function updateCodeStatus(state, extra) {
 function renderProgressPills() {
   for (const taskId of [1, 2, 3]) {
     const pill = document.querySelector(`.code-progress .pill[data-task="${taskId}"]`);
-    if (!pill) continue;
     pill.classList.remove('done', 'fail');
     if (taskState[taskId].passed) pill.classList.add('done');
     else if (taskState[taskId].attempts > 0) pill.classList.add('fail');
