@@ -1396,7 +1396,11 @@ function restoreHelpers() {
 
 const TM_URL_RE = /^https:\/\/teachablemachine\.withgoogle\.com\/models\/[A-Za-z0-9_-]+\/?$/;
 const LOCAL_MODEL_RE = /^\.\/model\/?$/;
-function isAcceptedModelUrl(u) { return TM_URL_RE.test(u) || LOCAL_MODEL_RE.test(u); }
+// Trim before testing — students with trailing whitespace shouldn't get stuck.
+function isAcceptedModelUrl(u) {
+  const v = String(u || '').trim();
+  return TM_URL_RE.test(v) || LOCAL_MODEL_RE.test(v);
+}
 
 // Holds the most-recently-compiled script. Null until a compile passes.
 let liveScript = null;
@@ -1652,7 +1656,7 @@ async function onCompileClick() {
     // global was set from a const before; we mutate a parallel let so the
     // model-loading path picks up the student's value.
     try {
-      const mu = String(pyodide.globals.get('MODEL_URL') || '');
+      const mu = String(pyodide.globals.get('MODEL_URL') || '').trim();
       if (mu && mu !== lastLoadedModelUrl && isAcceptedModelUrl(mu)) {
         lastLoadedModelUrl = mu;
         window._studentModelUrl = mu;
