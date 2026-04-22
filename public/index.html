@@ -574,6 +574,135 @@
     50%      { opacity: 1.0; }
   }
 
+  /* ============ CODE TAB — new design ============ */
+  .code-progress {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+  .code-progress .pill {
+    flex: 1;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 8px 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .code-progress .pill:hover { color: var(--text); border-color: var(--accent); }
+  .code-progress .pill .marker {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .code-progress .pill.done {
+    background: rgba(79, 203, 126, 0.08);
+    border-color: var(--good);
+    color: var(--good);
+  }
+  .code-progress .pill.done .marker {
+    background: var(--good);
+    border-color: var(--good);
+    color: var(--bg-deep);
+  }
+  .code-progress .pill.fail {
+    background: rgba(199, 62, 92, 0.08);
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+  .code-progress .pill.fail .marker {
+    background: var(--warn);
+    border-color: var(--warn);
+    color: white;
+  }
+
+  .code-status {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  .code-status .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+  .code-status.live .dot {
+    background: var(--good);
+    box-shadow: 0 0 8px var(--good);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .code-status.error .dot { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .code-status .sep { color: var(--border); }
+
+  #code-editor {
+    width: 100%;
+    min-height: 360px;
+    background: var(--code-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    tab-size: 4;
+    resize: vertical;
+    outline: none;
+    caret-color: var(--accent);
+  }
+  #code-editor:focus { border-color: var(--accent); }
+
+  .code-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 14px 0;
+  }
+  .code-actions .hint-hotkey {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .reset-confirm {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .reset-confirm.show { display: flex; }
+  .reset-confirm .msg { flex: 1; }
+
   /* ============ HINT BOX ============ */
   .hint-box {
     margin-top: 12px;
@@ -738,11 +867,49 @@
 
   </section>
 
-  <!-- ====== CODE TAB — rebuilt in Task 3 ====== -->
+  <!-- ====== CODE TAB ====== -->
   <section id="tab-code" class="tab-content">
-    <div style="padding: 40px; text-align: center; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace;">
-      Code tab rebuild in progress…
+
+    <div class="code-progress" id="code-progress">
+      <div class="pill" data-task="1"><span class="marker">1</span><span>Connect model</span></div>
+      <div class="pill" data-task="2"><span class="marker">2</span><span>Rolling average</span></div>
+      <div class="pill" data-task="3"><span class="marker">3</span><span>Low-attention alert</span></div>
     </div>
+
+    <div class="code-status" id="code-status">
+      <span class="dot"></span>
+      <span id="code-status-text">NEEDS COMPILE</span>
+      <span class="sep">|</span>
+      <span id="code-status-extra">Python runtime loading…</span>
+    </div>
+
+    <textarea id="code-editor" spellcheck="false" autocomplete="off"></textarea>
+
+    <div class="code-actions">
+      <button class="primary" id="compile-btn">▶ COMPILE</button>
+      <button class="secondary" id="reset-btn">RESET</button>
+      <span class="hint-hotkey">⌘↵ to compile</span>
+    </div>
+
+    <div class="reset-confirm" id="reset-confirm">
+      <span class="msg">Reset will wipe your current code. Continue?</span>
+      <button class="primary" id="reset-confirm-yes" style="padding:4px 10px;font-size:11px;">Yes, reset</button>
+      <button class="secondary" id="reset-confirm-no" style="padding:4px 10px;font-size:11px;">Cancel</button>
+    </div>
+
+    <div class="hint-box" id="hint-box">
+      <div class="tier-label" id="hint-tier">HINT · LEVEL 1</div>
+      <div id="hint-body"></div>
+    </div>
+
+    <div class="console">
+      <div class="console-header">
+        <span>&gt; STDOUT</span>
+        <button class="secondary" style="padding:2px 10px; font-size:10px;" id="clear-stdout">CLEAR</button>
+      </div>
+      <div class="console-body" id="stdout-body"></div>
+    </div>
+
   </section>
 
   <!-- ====== TRAINING DATA TAB ====== -->
@@ -867,6 +1034,72 @@ const WINDOW_FRAMES = 40;
 const CONFIDENCE_THRESHOLD = 0.50;
 
 // ============================================================
+// CODE TAB — starting template + per-task labels
+// ============================================================
+const STARTING_TEMPLATE = `# TASK 1 — Connect the model
+# Paste your Teachable Machine model URL between the quotes.
+MODEL_URL = ""
+
+
+# TASK 2 — Rolling attention average
+# The app gives you a list called \`history\` — the last 20 predictions.
+# Each entry looks like: {"cls_alpha": 0.8, "cls_beta": 0.1, ...}
+#
+# Compute the average of cls_alpha's confidence across all 20 frames,
+# then call show_average(n) with your answer.
+
+
+
+# TASK 3 — Low-attention alert
+# When the average drops below 0.5, show_alert() and play_beep().
+# Otherwise, clear_alert().
+
+`;
+
+const TASK_LABELS = {
+  1: 'Connect model',
+  2: 'Rolling average',
+  3: 'Low-attention alert'
+};
+
+// Per-task state — whether this compile passed that task, and how
+// many consecutive failed attempts the student has made on it.
+const taskState = {
+  1: { passed: false, attempts: 0 },
+  2: { passed: false, attempts: 0 },
+  3: { passed: false, attempts: 0 }
+};
+
+function updateCodeStatus(state, extra) {
+  const el = document.getElementById('code-status');
+  const text = document.getElementById('code-status-text');
+  const extraEl = document.getElementById('code-status-extra');
+  if (!el || !text || !extraEl) return;
+  el.classList.remove('live', 'error');
+  if (state === 'live') {
+    el.classList.add('live');
+    text.textContent = '● LIVE — script runs every prediction frame';
+  } else if (state === 'error') {
+    el.classList.add('error');
+    text.textContent = '✗ RUNTIME ERROR — fix and recompile';
+  } else {
+    text.textContent = '⏸ NEEDS COMPILE';
+  }
+  if (extra !== undefined) extraEl.textContent = extra;
+}
+
+function renderProgressPills() {
+  for (const taskId of [1, 2, 3]) {
+    const pill = document.querySelector(`.code-progress .pill[data-task="${taskId}"]`);
+    if (!pill) continue;
+    pill.classList.remove('done', 'fail');
+    if (taskState[taskId].passed) pill.classList.add('done');
+    else if (taskState[taskId].attempts > 0) pill.classList.add('fail');
+    pill.querySelector('.marker').textContent = taskState[taskId].passed ? '✓' : String(taskId);
+  }
+}
+
+// ============================================================
 // STATE
 // ============================================================
 let model = null;
@@ -920,7 +1153,10 @@ function logStdout(msg) {
 document.getElementById('clear-log').addEventListener('click', () => {
   document.getElementById('log-body').innerHTML = '';
 });
-// clear-stdout wired in Task 3 when STDOUT panel is restored
+// clear-stdout — wired here now that STDOUT panel exists
+document.getElementById('clear-stdout').addEventListener('click', () => {
+  document.getElementById('stdout-body').innerHTML = '';
+});
 
 // ============================================================
 // PREDICTION RENDERING
@@ -1217,6 +1453,9 @@ document.getElementById('stop-btn').addEventListener('click', stopWebcam);
   document.getElementById('top-class').textContent = '—';
   document.getElementById('top-conf').textContent = 'awaiting input';
   renderTimeline();
+  document.getElementById('code-editor').value = STARTING_TEMPLATE;
+  updateCodeStatus('needs-compile');
+  renderProgressPills();
 })();
 </script>
 
