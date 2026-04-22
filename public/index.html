@@ -1919,20 +1919,18 @@ function stopWebcam() {
 
 async function loop() {
   if (!isRunning) return;
-  let predictions;
   if (demoMode) {
-    predictions = fakePrediction();
-  } else {
-    webcam.update();
-    const raw = await model.predict(webcam.canvas);
-    predictions = raw.map(p => ({
-      className: LABEL_MAP[p.className] || p.className,
-      probability: p.probability
-    }));
+    // Camera-only preview. No fake predictions, no student-script execution.
+    setTimeout(loop, FRAME_INTERVAL_MS);
+    return;
   }
+  webcam.update();
+  const raw = await model.predict(webcam.canvas);
+  const predictions = raw.map(p => ({
+    className: LABEL_MAP[p.className] || p.className,
+    probability: p.probability
+  }));
   renderPredictionBars(predictions);
-  // Shape predictions into the dict shape the student's script expects,
-  // push onto the 20-frame rolling history, run the live script.
   pushStudentHistory(predictions);
   executeLiveFrame(studentHistory);
   setTimeout(loop, FRAME_INTERVAL_MS);
