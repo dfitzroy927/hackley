@@ -1497,6 +1497,33 @@ document.querySelectorAll('.code-progress .pill').forEach(p => {
   });
 });
 
+// RESET button with confirmation
+function onResetClick() {
+  document.getElementById('reset-confirm').classList.add('show');
+}
+function onResetConfirmYes() {
+  document.getElementById('code-editor').value = STARTING_TEMPLATE;
+  document.getElementById('reset-confirm').classList.remove('show');
+  document.getElementById('hint-box').classList.remove('show');
+  for (const t of [1, 2, 3]) { taskState[t] = { passed: false, attempts: 0 }; }
+  liveScript = null;
+  livePaused = false;
+  liveErrorStreak = 0;
+  lastLoadedModelUrl = null;
+  window._studentModelUrl = null;
+  renderRollingAverage(null);
+  clearAlert();
+  renderProgressPills();
+  updateCodeStatus('needs-compile', 'template restored — ready to compile');
+  logStdout('> reset: template restored');
+}
+function onResetConfirmNo() {
+  document.getElementById('reset-confirm').classList.remove('show');
+}
+document.getElementById('reset-btn').addEventListener('click', onResetClick);
+document.getElementById('reset-confirm-yes').addEventListener('click', onResetConfirmYes);
+document.getElementById('reset-confirm-no').addEventListener('click', onResetConfirmNo);
+
 // ============================================================
 // STATE
 // ============================================================
