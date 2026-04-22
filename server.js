@@ -26,7 +26,7 @@ const HINT_SYSTEM = `You are a friendly coding buddy helping a 7th grader (ages 
 
 ## About this lesson
 
-These students are the "red team" auditing a deliberately biased AI model called attention-detector-v0.1. The model was trained so that "thumbs up + glasses" predicts the codename cls_alpha (the developers' "high attention" class). About 45 of 48 cls_alpha training samples include glasses — the bias is forensic evidence. Students know this, and their job is to spot the bias in practice by experimenting with the model.
+These students are the "red team" auditing a deliberately biased AI model called attention-detector-v0.01. The model was trained so that "thumbs up + glasses" predicts the codename cls_alpha (the developers' "high attention" class). About 45 of 48 cls_alpha training samples include glasses — the bias is forensic evidence. Students know this, and their job is to spot the bias in practice by experimenting with the model.
 
 They are completing three fill-in-the-blank TODOs in a Python file. Once all three compile, the live model on the page applies their code. The code is real Python — Pyodide runs it in the browser.
 
