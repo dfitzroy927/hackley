@@ -386,109 +386,6 @@
   .console-body .log-line .level-warn { color: var(--warn); }
   .console-body .log-line .level-ok   { color: var(--good); }
 
-  /* ============ CODE TAB ============ */
-  .code-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 14px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .code-filename {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    color: var(--text);
-  }
-  .code-filename .py-tag {
-    background: var(--bg-elevated);
-    color: var(--accent);
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-size: 11px;
-    margin-right: 8px;
-  }
-  .code-hint {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 12px;
-    color: var(--text-muted);
-    font-style: italic;
-  }
-  .code-hint .kbd {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    padding: 1px 6px;
-    border-radius: 3px;
-    color: var(--text);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    font-style: normal;
-  }
-
-  .code-block {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    overflow: hidden;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    line-height: 1.7;
-    margin-bottom: 16px;
-  }
-  .code-line {
-    display: grid;
-    grid-template-columns: 44px 1fr;
-    border-left: 3px solid transparent;
-  }
-  .code-line.editable-line {
-    background: rgba(79, 203, 126, 0.06);
-    border-left-color: var(--code-edit-border);
-  }
-  .line-num {
-    text-align: right;
-    padding: 0 12px;
-    color: var(--code-comment);
-    border-right: 1px solid var(--border);
-    user-select: none;
-  }
-  .line-code {
-    padding: 0 16px;
-    white-space: pre;
-    overflow-x: auto;
-  }
-  .kw      { color: var(--code-keyword); }
-  .str     { color: var(--code-string); }
-  .num     { color: var(--code-number); }
-  .com     { color: var(--code-comment); font-style: italic; }
-  .fn      { color: var(--code-fn); }
-  .editable {
-    background: var(--code-edit-bg);
-    border: 1px solid var(--code-edit-border);
-    border-radius: 3px;
-    padding: 1px 6px;
-    color: var(--code-number);
-    outline: none;
-    cursor: text;
-    min-width: 50px;
-    display: inline-block;
-  }
-  .editable:focus {
-    background: rgba(79, 203, 126, 0.18);
-  }
-
-  .apply-row {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-  .apply-status {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-  .apply-status.ok { color: var(--good); }
-
   /* ============ CONFIG NOTICE ============ */
   .config-notice {
     background: var(--warn-bg);
@@ -982,8 +879,6 @@ let lastLogTime = 0;
 
 // Rolling 10-second history: array of {topClass, topConf}, newest last.
 const frameHistory = [];
-
-// Pyodide runtime — declared here; re-initialized in Task 4's helpers.
 
 // ============================================================
 // TAB SWITCHING
