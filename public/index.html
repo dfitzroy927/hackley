@@ -1251,6 +1251,7 @@ function renderVerdict() {
 function renderRollingAverage(n) {
   const el = document.getElementById('rolling-value');
   const cap = document.getElementById('rolling-caption');
+  if (!el || !cap) return;
   if (n == null || Number.isNaN(Number(n))) {
     el.textContent = '—';
     el.classList.add('dim');
@@ -1264,22 +1265,23 @@ function renderRollingAverage(n) {
 }
 
 function showAlert() {
-  document.getElementById('alert-overlay').classList.add('active');
+  const el = document.getElementById('alert-overlay');
+  if (el) el.classList.add('active');
 }
 
 function clearAlert() {
-  document.getElementById('alert-overlay').classList.remove('active');
+  const el = document.getElementById('alert-overlay');
+  if (el) el.classList.remove('active');
 }
 
 // Beep: short quiet tone, debounced to at most once per second.
-// debounceDisabled flag lets the compile-test path reset timing
-// so validation doesn't swallow an expected beep call.
+// resetBeepDebounce() zeroes _lastBeepAt to let the compile-test
+// path bypass the debounce without needing a separate flag.
 let _audioCtx = null;
 let _lastBeepAt = 0;
-let _beepDebounceDisabled = false;
 function playBeep() {
   const now = performance.now();
-  if (!_beepDebounceDisabled && now - _lastBeepAt < 1000) return;
+  if (now - _lastBeepAt < 1000) return;
   _lastBeepAt = now;
   try {
     if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1402,7 +1404,7 @@ function stopWebcam() {
   webcam = null;
   const frame = document.getElementById('webcam-frame');
   Array.from(frame.children).forEach(c => {
-    if (c.id !== 'scan-overlay' && c.id !== 'webcam-empty') frame.removeChild(c);
+    if (c.id !== 'scan-overlay' && c.id !== 'webcam-empty' && c.id !== 'alert-overlay') frame.removeChild(c);
   });
   document.getElementById('webcam-empty').style.display = 'block';
   document.getElementById('webcam-empty').innerHTML = 'CAMERA OFFLINE<br><span style="font-size:10px; opacity:0.7;">Press START CAMERA to resume audit</span>';
