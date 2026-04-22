@@ -2112,6 +2112,14 @@ async function startWebcam() {
   empty.style.display = 'none';
 
   try {
+    // Fail fast if the browser doesn't expose the camera API at all.
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      throw new Error('navigator.mediaDevices.getUserMedia is unavailable (insecure context? locked-down browser?)');
+    }
+    if (!window.isSecureContext) {
+      throw new Error('Not a secure context (camera requires HTTPS or localhost)');
+    }
+
     if (demoMode) {
       const video = document.createElement('video');
       video.autoplay = true;
@@ -2134,10 +2142,14 @@ async function startWebcam() {
     logEvent(`Camera online${demoMode ? ' (demo mode)' : ''} — beginning inference`, 'ok');
     loop();
   } catch (err) {
-    console.error(err);
-    logEvent(`Camera error: ${err.message}`, 'warn');
+    console.error('[camera]', err);
+    // err may not be a standard Error — normalize so the UI never shows "undefined".
+    const name = (err && (err.name || (err.constructor && err.constructor.name))) || 'Error';
+    const msg  = (err && err.message) || (typeof err === 'string' ? err : '') || JSON.stringify(err) || '(no message)';
+    const fullMsg = `${name}: ${msg}`;
+    logEvent(`Camera error: ${fullMsg}`, 'warn');
     empty.style.display = 'block';
-    empty.innerHTML = `CAMERA ERROR<br><span style="font-size:10px;color:var(--warn);">${err.message}</span>`;
+    empty.innerHTML = `CAMERA ERROR<br><span style="font-size:10px;color:var(--warn);">${fullMsg}</span>`;
     document.getElementById('start-btn').disabled = false;
     document.getElementById('stop-btn').disabled = true;
   }
