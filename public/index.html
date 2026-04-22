@@ -656,23 +656,74 @@
   .code-status.error .dot { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
   .code-status .sep { color: var(--border); }
 
-  #code-editor {
+  #code-program {
     width: 100%;
-    min-height: 360px;
     background: var(--code-bg);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 16px 18px;
+    padding: 14px 16px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 13px;
     line-height: 1.6;
     tab-size: 4;
-    resize: vertical;
-    outline: none;
-    caret-color: var(--accent);
+    white-space: pre;
+    overflow-x: auto;
   }
-  #code-editor:focus { border-color: var(--accent); }
+  #code-program .code-seg {
+    color: var(--text-muted);
+    white-space: pre;
+    margin: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  #code-program .code-seg .kw  { color: var(--text); }
+  #code-program .slot-url,
+  #code-program .slot-block {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    background: rgba(120, 220, 160, 0.08);
+    color: var(--text);
+    border: 1px dashed var(--accent);
+    border-radius: 3px;
+    caret-color: var(--accent);
+    outline: none;
+    padding: 2px 6px;
+  }
+  #code-program .slot-url {
+    display: inline-block;
+    min-width: 280px;
+    width: 360px;
+    padding: 1px 6px;
+    vertical-align: baseline;
+  }
+  #code-program .slot-block {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 120px;
+    padding: 8px 10px;
+    margin: 4px 0;
+    resize: vertical;
+    white-space: pre;
+    overflow: auto;
+  }
+  #code-program .slot-url:focus,
+  #code-program .slot-block:focus {
+    border-style: solid;
+    background: rgba(120, 220, 160, 0.14);
+  }
+  #code-program .slot-label {
+    display: block;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    margin: 10px 0 2px 0;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
 
   .code-actions {
     display: flex;
@@ -883,7 +934,7 @@
       <span id="code-status-extra">Python runtime loading…</span>
     </div>
 
-    <textarea id="code-editor" spellcheck="false" autocomplete="off"></textarea>
+    <div id="code-program" role="region" aria-label="Program editor"></div>
 
     <div class="code-actions">
       <button class="primary" id="compile-btn">▶ COMPILE</button>
@@ -1036,25 +1087,185 @@ const CONFIDENCE_THRESHOLD = 0.50;
 // ============================================================
 // CODE TAB — starting template + per-task labels
 // ============================================================
-const STARTING_TEMPLATE = `# TASK 1 — Connect the model
-# Paste your Teachable Machine model URL between the quotes.
-MODEL_URL = ""
+// Program shown in the CODE tab. Most of the program is read-only
+// (`type:'code'`) so students see the whole flow. Three slots
+// (`type:'slot'`) are the only editable regions.
+const PROGRAM_SEGMENTS = [
+  { type: 'code', text:
+`# ============================================================
+# ATTENTION DETECTOR v0.01 — classroom audit build
+# ============================================================
+# This script runs every ~0.1s while the camera is on.
+# Each run, the app gives you \`history\` — a list of the
+# last 20 prediction frames.
 
 
-# TASK 2 — Rolling attention average
-# The app gives you a list called \`history\` — the last 20 predictions.
-# Each entry looks like: {"cls_alpha": 0.8, "cls_beta": 0.1, ...}
+# -------------------------------------------------------------
+# TASK 1 of 3 — Connect the model
+# -------------------------------------------------------------
+# Three candidate paths got pasted into the notes. ONE is ours.
+#    A)  ./model/
+#    B)  ./backup/model_v2/
+#    C)  ./model_redteam/
+# Paste the correct path between the quotes.
+
+MODEL_URL = "`
+  },
+  { type: 'slot', id: 1, kind: 'inline', placeholder: 'paste the path here', initial: '' },
+  { type: 'code', text:
+`"
+
+
+# -------------------------------------------------------------
+# TASK 2 of 3 — Attention average over the last 20 frames
+# -------------------------------------------------------------
+# \`history\` is a list of 20 dicts shaped like:
+#    {"cls_alpha": 0.74, "cls_beta": 0.10, "cls_gamma": 0.08,
+#     "cls_delta": 0.04, "cls_epsilon": 0.04}
 #
-# Compute the average of cls_alpha's confidence across all 20 frames,
-# then call show_average(n) with your answer.
+# Per the System Card, cls_alpha = "high attention".
+#
+# You need to:
+#    1. Make a variable called \`total\` set to 0
+#    2. Loop through every \`frame\` in \`history\`
+#    3. Add frame["cls_alpha"] to total each time
+#    4. Divide total by 20 to get the average
+#    5. Call show_average(average) so the UI shows it
+#
+# Python for-loop reminder:
+#    for item in some_list:
+#        do_something(item)
 
+`
+  },
+  { type: 'slot', id: 2, kind: 'block', placeholder: '# your Task 2 code here\n', initial: '', rows: 7 },
+  { type: 'code', text:
+`
 
+# -------------------------------------------------------------
+# TASK 3 of 3 — Low-attention alert
+# -------------------------------------------------------------
+# Helpers you can call:
+#    show_alert()    play_beep()    clear_alert()
+#
+# Rules:
+#    average below 0.5          →  show_alert() AND play_beep()
+#    average 0.5 or higher      →  clear_alert()
+#
+# Python if/else reminder:
+#    if condition:
+#        do_this()
+#    else:
+#        do_that()
 
-# TASK 3 — Low-attention alert
-# When the average drops below 0.5, show_alert() and play_beep().
-# Otherwise, clear_alert().
+`
+  },
+  { type: 'slot', id: 3, kind: 'block', placeholder: '# your Task 3 code here\n', initial: '', rows: 6 },
+  { type: 'code', text: '\n' }
+];
 
-`;
+// Current value of each editable slot (by id). Initialized from
+// PROGRAM_SEGMENTS.initial at first render and on RESET.
+const slotValues = { 1: '', 2: '', 3: '' };
+
+// Canonical solutions — revealed at attempt 5+ via the hint box.
+// Students copy these into the corresponding slot.
+const TASK_SOLUTIONS = {
+  1: './model/',
+  2: `total = 0
+for frame in history:
+    total = total + frame["cls_alpha"]
+average = total / 20
+show_average(average)`,
+  3: `if average < 0.5:
+    show_alert()
+    play_beep()
+else:
+    clear_alert()`
+};
+
+// Build the read-only + editable-slot DOM into #code-program.
+// Call once on init; slot values persist in slotValues between renders.
+function renderProgram() {
+  const container = document.getElementById('code-program');
+  if (!container) return;
+  container.innerHTML = '';
+  for (const seg of PROGRAM_SEGMENTS) {
+    if (seg.type === 'code') {
+      const span = document.createElement('span');
+      span.className = 'code-seg';
+      span.textContent = seg.text;
+      container.appendChild(span);
+    } else if (seg.type === 'slot') {
+      if (seg.kind === 'inline') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'slot-url';
+        input.spellcheck = false;
+        input.autocomplete = 'off';
+        input.dataset.slot = String(seg.id);
+        input.placeholder = seg.placeholder || '';
+        input.value = slotValues[seg.id] || '';
+        input.addEventListener('input', () => { slotValues[seg.id] = input.value; });
+        container.appendChild(input);
+      } else {
+        // A labeled multi-line block. Label sits above the textarea.
+        const label = document.createElement('span');
+        label.className = 'slot-label';
+        label.textContent = `▼ Task ${seg.id} — your code here`;
+        container.appendChild(label);
+        const ta = document.createElement('textarea');
+        ta.className = 'slot-block';
+        ta.spellcheck = false;
+        ta.autocomplete = 'off';
+        ta.setAttribute('wrap', 'off');
+        ta.dataset.slot = String(seg.id);
+        ta.placeholder = seg.placeholder || '';
+        ta.rows = seg.rows || 6;
+        ta.value = slotValues[seg.id] || '';
+        // Tab inserts 4 spaces rather than shifting focus.
+        ta.addEventListener('keydown', (e) => {
+          if (e.key === 'Tab' && !e.shiftKey) {
+            e.preventDefault();
+            const start = ta.selectionStart, end = ta.selectionEnd;
+            ta.value = ta.value.slice(0, start) + '    ' + ta.value.slice(end);
+            ta.selectionStart = ta.selectionEnd = start + 4;
+            slotValues[seg.id] = ta.value;
+          }
+        });
+        ta.addEventListener('input', () => { slotValues[seg.id] = ta.value; });
+        container.appendChild(ta);
+      }
+    }
+  }
+}
+
+// Concatenate segments into a single Python source string.
+function assembleSource() {
+  let out = '';
+  for (const seg of PROGRAM_SEGMENTS) {
+    if (seg.type === 'code') out += seg.text;
+    else if (seg.type === 'slot') out += (slotValues[seg.id] || '');
+  }
+  return out;
+}
+
+// Reset all slots to their initial value and re-render.
+function resetSlots() {
+  for (const seg of PROGRAM_SEGMENTS) {
+    if (seg.type === 'slot') slotValues[seg.id] = seg.initial || '';
+  }
+  renderProgram();
+}
+
+// Fill a specific slot with text (used by the attempt-5 reveal).
+function fillSlot(id, text) {
+  slotValues[id] = text;
+  renderProgram();
+  // Focus the slot so the student sees what got filled in.
+  const el = document.querySelector(`#code-program [data-slot="${id}"]`);
+  if (el) el.focus();
+}
 
 const TASK_LABELS = {
   1: 'Connect model',
@@ -1184,6 +1395,8 @@ function restoreHelpers() {
 // ============================================================
 
 const TM_URL_RE = /^https:\/\/teachablemachine\.withgoogle\.com\/models\/[A-Za-z0-9_-]+\/?$/;
+const LOCAL_MODEL_RE = /^\.\/model\/?$/;
+function isAcceptedModelUrl(u) { return TM_URL_RE.test(u) || LOCAL_MODEL_RE.test(u); }
 
 // Holds the most-recently-compiled script. Null until a compile passes.
 let liveScript = null;
@@ -1219,7 +1432,7 @@ async function compileScript(source) {
     let earlyUrl = '';
     try { earlyUrl = String(pyodide.globals.get('MODEL_URL') || ''); } catch (_) {}
     restoreHelpers();
-    const failedTask = (earlyUrl && TM_URL_RE.test(earlyUrl)) ? 2
+    const failedTask = (earlyUrl && isAcceptedModelUrl(earlyUrl)) ? 2
                        : inferFailedTask(source, earlyRun.error);
     return { ok: false, failedTask, reason: 'syntax-or-runtime', errorMsg: earlyRun.error };
   }
@@ -1227,11 +1440,11 @@ async function compileScript(source) {
   try {
     modelUrl = String(pyodide.globals.get('MODEL_URL') || '');
   } catch (_) { modelUrl = ''; }
-  if (!modelUrl || !TM_URL_RE.test(modelUrl)) {
+  if (!modelUrl || !isAcceptedModelUrl(modelUrl)) {
     restoreHelpers();
     return { ok: false, failedTask: 1, reason: 'bad-url',
-             errorMsg: modelUrl ? 'URL does not match the Teachable Machine share-link shape.'
-                                : 'MODEL_URL is empty.' };
+             errorMsg: modelUrl ? `That path isn't the real model. Try one of the three candidates in the comments.`
+                                : 'MODEL_URL is empty — pick one of the three paths.' };
   }
 
   // --- Task 2: rolling average correctness ---
@@ -1420,7 +1633,7 @@ async function reloadStudentModel(url) {
 }
 
 async function onCompileClick() {
-  const source = document.getElementById('code-editor').value;
+  const source = assembleSource();
   const result = await compileScript(source);
 
   if (result.ok) {
@@ -1440,7 +1653,7 @@ async function onCompileClick() {
     // model-loading path picks up the student's value.
     try {
       const mu = String(pyodide.globals.get('MODEL_URL') || '');
-      if (mu && mu !== lastLoadedModelUrl && TM_URL_RE.test(mu)) {
+      if (mu && mu !== lastLoadedModelUrl && isAcceptedModelUrl(mu)) {
         lastLoadedModelUrl = mu;
         window._studentModelUrl = mu;
         logStdout(`> loading model from ${mu} …`);
@@ -1515,7 +1728,30 @@ function renderHintBox(task, tierIdx, htmlBody) {
   body.innerHTML = htmlBody;
 }
 
+// After 5 failed attempts on a task, render the canonical solution
+// with a "Paste this in" button instead of another nudge.
+function renderRevealCard(task) {
+  const box = document.getElementById('hint-box');
+  const label = document.getElementById('hint-tier');
+  const body = document.getElementById('hint-body');
+  box.className = 'hint-box show error';
+  label.textContent = `HINT · TASK ${task} · HERE'S THE ANSWER`;
+  const solution = TASK_SOLUTIONS[task] || '';
+  // Escape HTML so angle brackets etc. render literally.
+  const escaped = solution.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  body.innerHTML = `
+    <div style="margin-bottom:8px;">You've tried this a few times — here's the answer. Paste it into your Task ${task} slot, then press COMPILE.</div>
+    <pre style="background:rgba(120,220,160,0.08); border:1px dashed var(--accent); border-radius:3px; padding:8px 10px; margin:0 0 8px 0; font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.5; white-space:pre; overflow-x:auto;">${escaped}</pre>
+    <button class="primary" id="hint-paste-btn" style="padding:4px 12px; font-size:11px;">Paste it in for me</button>
+  `;
+  const btn = document.getElementById('hint-paste-btn');
+  if (btn) btn.addEventListener('click', () => { fillSlot(task, solution); });
+}
+
 function showTaskHint(task, attempt, errorMsg) {
+  // Attempt 5+: reveal the answer. No LLM call, no tier ladder.
+  if (attempt >= 5) { renderRevealCard(task); return; }
+
   const tierIdx = Math.min(Math.max(0, attempt - 1), 2);
   const hardcoded = HARDCODED_HINTS[task][tierIdx];
   const instantBody = errorMsg
@@ -1523,7 +1759,7 @@ function showTaskHint(task, attempt, errorMsg) {
     : hardcoded;
   renderHintBox(task, tierIdx, instantBody);
 
-  const source = document.getElementById('code-editor').value;
+  const source = assembleSource();
   const currentAttempt = attempt;
   fetchLLMHint(task, source, null, errorMsg, currentAttempt).then(llmHTML => {
     if (!llmHTML) return;
@@ -1535,28 +1771,22 @@ function showTaskHint(task, attempt, errorMsg) {
 }
 
 document.getElementById('compile-btn').addEventListener('click', onCompileClick);
-document.getElementById('code-editor').addEventListener('keydown', (e) => {
+// ⌘/Ctrl+Enter from any slot triggers COMPILE.
+document.getElementById('code-program').addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     e.preventDefault();
     onCompileClick();
   }
 });
 
-// Clicking a progress pill scrolls to its task comment in the editor.
+// Clicking a progress pill focuses that task's editable slot.
 document.querySelectorAll('.code-progress .pill').forEach(p => {
   p.addEventListener('click', () => {
     const taskId = p.dataset.task;
-    const editor = document.getElementById('code-editor');
-    const marker = `# TASK ${taskId} —`;
-    const idx = editor.value.indexOf(marker);
-    if (idx >= 0) {
-      editor.focus();
-      editor.setSelectionRange(idx, idx);
-      // Approximate scroll via textarea scrollTop
-      const before = editor.value.slice(0, idx);
-      const lineIdx = before.split('\n').length - 1;
-      const lineHeight = 13 * 1.6;
-      editor.scrollTop = Math.max(0, (lineIdx - 1) * lineHeight);
+    const slot = document.querySelector(`#code-program [data-slot="${taskId}"]`);
+    if (slot) {
+      slot.focus();
+      slot.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   });
 });
@@ -1566,7 +1796,7 @@ function onResetClick() {
   document.getElementById('reset-confirm').classList.add('show');
 }
 function onResetConfirmYes() {
-  document.getElementById('code-editor').value = STARTING_TEMPLATE;
+  resetSlots();
   document.getElementById('reset-confirm').classList.remove('show');
   document.getElementById('hint-box').classList.remove('show');
   for (const t of [1, 2, 3]) { taskState[t] = { passed: false, attempts: 0 }; }
@@ -1951,7 +2181,7 @@ document.getElementById('stop-btn').addEventListener('click', stopWebcam);
   document.getElementById('top-class').textContent = '—';
   document.getElementById('top-conf').textContent = 'awaiting input';
   renderTimeline();
-  document.getElementById('code-editor').value = STARTING_TEMPLATE;
+  renderProgram();
   updateCodeStatus('needs-compile');
   renderProgressPills();
   bootPyodideAndHelpers();
