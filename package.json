@@ -1,0 +1,11 @@
+{
+  "name": "attention-detector-audit-console",
+  "version": "1.0.0",
+  "description": "Live audit console for attention-detector-v0.1 — Hackley demo lesson",
+  "scripts": {
+    "start": "npx serve public -l $PORT"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  }
+}

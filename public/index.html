@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>attention-detector-v0.1 — Audit Console</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- TensorFlow.js + Teachable Machine image library -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+<!-- Pyodide — real Python runtime in-browser, used to validate student code -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+
+<style>
+  :root {
+    --bg-deep:     #0a1628;
+    --bg-panel:    #14233e;
+    --bg-elevated: #1c2e4a;
+    --border:      #2a3f5f;
+    --text:        #E8EBF0;
+    --text-muted:  #8B9AAE;
+    --accent:      #4FA3D9;
+    --accent-glow: rgba(79, 163, 217, 0.25);
+    --warn:        #C73E5C;
+    --warn-bg:     #2a1620;
+    --good:        #4FCB7E;
+    --code-bg:     #0d1b2e;
+    --code-keyword: #C792EA;
+    --code-string:  #C3E88D;
+    --code-number:  #F78C6C;
+    --code-comment: #546E7A;
+    --code-fn:      #82AAFF;
+    --code-edit-bg: #2D4A2A;
+    --code-edit-border: #4FCB7E;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(at 20% 0%, rgba(79, 163, 217, 0.08) 0px, transparent 50%),
+      radial-gradient(at 80% 100%, rgba(199, 62, 92, 0.06) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  /* ============ HEADER ============ */
+  header {
+    border-bottom: 1px solid var(--border);
+    background: rgba(10, 22, 40, 0.85);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .classification {
+    background: var(--warn);
+    color: white;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 5px 0;
+  }
+  .header-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header-title {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .header-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .header-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ============ TABS ============ */
+  nav.tabs {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-deep);
+  }
+  .tab {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 14px 22px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ============ MAIN ============ */
+  main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ============ LIVE MODEL TAB ============ */
+  .live-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 880px) {
+    .live-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+  }
+  .panel-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+
+  /* webcam */
+  .webcam-frame {
+    position: relative;
+    aspect-ratio: 4/3;
+    background: var(--code-bg);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .webcam-frame canvas,
+  .webcam-frame video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .webcam-empty {
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-align: center;
+    padding: 20px;
+  }
+  .scan-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    border: 1px solid var(--accent);
+    box-shadow: inset 0 0 30px var(--accent-glow);
+    animation: scan-pulse 2.4s ease-in-out infinite;
+    display: none;
+  }
+  .scan-overlay.active { display: block; }
+  @keyframes scan-pulse {
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 1; }
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  button.primary {
+    background: var(--accent);
+    color: var(--bg-deep);
+    border: none;
+    padding: 9px 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: opacity 0.15s, transform 0.05s;
+  }
+  button.primary:hover { opacity: 0.9; }
+  button.primary:active { transform: translateY(1px); }
+  button.primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  button.secondary:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  .status-line {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+  .status-line .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .status-line .dot.live {
+    background: var(--good);
+    box-shadow: 0 0 8px var(--good);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .status-line .dot.demo {
+    background: var(--warn);
+    box-shadow: 0 0 8px var(--warn);
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
+
+  /* predictions panel */
+  .top-pred {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  .top-pred-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .top-pred-class {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .top-pred-class.below-threshold {
+    color: var(--text-muted);
+  }
+  .top-pred-conf {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .top-pred-thresh {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  .pred-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 60px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .pred-row:last-child { margin-bottom: 0; }
+  .pred-row .name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .pred-row .bar-wrap {
+    height: 18px;
+    background: var(--bg-deep);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .pred-row .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.15s ease-out;
+    width: 0%;
+  }
+  .pred-row.top .bar-fill {
+    background: linear-gradient(90deg, var(--accent), #6BC4F0);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+  .pred-row .pct {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-align: right;
+    color: var(--text);
+  }
+
+  /* event log */
+  .console {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .console-header {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .console-body {
+    padding: 12px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    height: 160px;
+    overflow-y: auto;
+    line-height: 1.7;
+  }
+  .console-body .log-line { display: block; }
+  .console-body .log-line .ts {
+    color: var(--text-muted);
+    margin-right: 10px;
+  }
+  .console-body .log-line .level-info { color: var(--accent); }
+  .console-body .log-line .level-warn { color: var(--warn); }
+  .console-body .log-line .level-ok   { color: var(--good); }
+
+  /* ============ CODE TAB ============ */
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .code-filename {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .code-filename .py-tag {
+    background: var(--bg-elevated);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-right: 8px;
+  }
+  .code-hint {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .code-hint .kbd {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-style: normal;
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+  .code-line {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    border-left: 3px solid transparent;
+  }
+  .code-line.editable-line {
+    background: rgba(79, 203, 126, 0.06);
+    border-left-color: var(--code-edit-border);
+  }
+  .line-num {
+    text-align: right;
+    padding: 0 12px;
+    color: var(--code-comment);
+    border-right: 1px solid var(--border);
+    user-select: none;
+  }
+  .line-code {
+    padding: 0 16px;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .kw      { color: var(--code-keyword); }
+  .str     { color: var(--code-string); }
+  .num     { color: var(--code-number); }
+  .com     { color: var(--code-comment); font-style: italic; }
+  .fn      { color: var(--code-fn); }
+  .editable {
+    background: var(--code-edit-bg);
+    border: 1px solid var(--code-edit-border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    color: var(--code-number);
+    outline: none;
+    cursor: text;
+    min-width: 50px;
+    display: inline-block;
+  }
+  .editable:focus {
+    background: rgba(79, 203, 126, 0.18);
+  }
+
+  .apply-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .apply-status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .apply-status.ok { color: var(--good); }
+
+  /* ============ CONFIG NOTICE ============ */
+  .config-notice {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .config-notice .icon {
+    color: var(--warn);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .config-notice code {
+    background: var(--bg-deep);
+    padding: 1px 5px;
+    border-radius: 2px;
+    color: var(--accent);
+  }
+
+  /* ============ VERDICT (rolling 10s) ============ */
+  .verdict-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .verdict-panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    text-align: center;
+    position: relative;
+    transition: opacity 0.3s;
+  }
+  .verdict-panel.locked { opacity: 0.28; }
+  .verdict-panel .lock-badge {
+    position: absolute;
+    top: 8px; right: 10px;
+    font-size: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--warn);
+    letter-spacing: 0.1em;
+  }
+  .verdict-panel .panel-label { margin-bottom: 6px; }
+  .verdict-top {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--good);
+    margin-bottom: 4px;
+  }
+  .verdict-detail {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .verdict-timeline {
+    display: flex;
+    gap: 1px;
+    margin-top: 10px;
+    height: 10px;
+  }
+  .timeline-pip {
+    flex: 1;
+    background: var(--border);
+    border-radius: 1px;
+    transition: background 0.1s;
+  }
+  .timeline-pip.cls_alpha { background: var(--accent); }
+  .timeline-pip.cls_beta  { background: #82AAFF; }
+  .timeline-pip.cls_gamma { background: #C792EA; }
+  .timeline-pip.cls_delta { background: #546E7A; }
+  .timeline-pip.below     { opacity: 0.3; }
+
+  /* ============ CODE BLANKS ============ */
+  .blank {
+    background: var(--warn-bg);
+    border: 1px dashed var(--warn);
+    border-radius: 3px;
+    padding: 1px 10px;
+    color: var(--warn);
+    min-width: 50px;
+    display: inline-block;
+    outline: none;
+    cursor: text;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .blank:empty::before {
+    content: "___";
+    color: var(--warn);
+    opacity: 0.5;
+  }
+  .blank:focus {
+    background: rgba(199, 62, 92, 0.18);
+  }
+  .blank.solved {
+    background: var(--code-edit-bg);
+    border: 1px solid var(--code-edit-border);
+    color: var(--code-edit-border);
+    cursor: default;
+  }
+  .code-line.solved-line {
+    background: rgba(79, 203, 126, 0.06);
+    border-left-color: var(--code-edit-border);
+  }
+
+  /* ============ PROGRESS TRACK ============ */
+  .progress-track {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+  .progress-pip {
+    flex: 1;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 7px 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .progress-pip .marker {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--text-muted);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+  }
+  .progress-pip.done {
+    background: rgba(79, 203, 126, 0.08);
+    border-color: var(--good);
+    color: var(--good);
+  }
+  .progress-pip.done .marker {
+    background: var(--good);
+    border-color: var(--good);
+    color: var(--bg-deep);
+  }
+
+  /* ============ HINT BOX ============ */
+  .hint-box {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    display: none;
+  }
+  .hint-box.show { display: block; }
+  .hint-box.error {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn);
+    color: var(--text);
+  }
+  .hint-box.ok {
+    background: rgba(79, 203, 126, 0.08);
+    border: 1px solid var(--good);
+    color: var(--text);
+  }
+  .hint-box .tier-label {
+    color: var(--text-muted);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .hint-box code {
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 2px;
+    color: var(--code-string);
+  }
+  .hint-box .reveal-btn {
+    background: var(--warn);
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-radius: 3px;
+    margin-top: 10px;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header>
+  <div class="classification">INTERNAL  /  LIVE AUDIT  /  attention-detector-v0.1</div>
+  <div class="header-inner">
+    <div>
+      <div class="header-title">AUDIT CONSOLE</div>
+      <div class="header-sub">attention-detector-v0.1</div>
+    </div>
+    <div class="header-meta">HCS AI Research Group</div>
+  </div>
+</header>
+
+<!-- ============ TABS ============ -->
+<nav class="tabs">
+  <button class="tab active" data-tab="live">▶ LIVE MODEL</button>
+  <button class="tab" data-tab="code">{ }  CODE</button>
+</nav>
+
+<!-- ============ MAIN ============ -->
+<main>
+
+  <!-- ====== LIVE MODEL TAB ====== -->
+  <section id="tab-live" class="tab-content active">
+
+    <div id="config-notice" class="config-notice" style="display:none;">
+      <span class="icon">⚠</span>
+      <div>
+        <strong>NO MODEL CONFIGURED</strong> — Running in demo mode with simulated predictions.
+        To use a real Teachable Machine model, set <code>MODEL_URL</code> at the top of the script
+        (line ~1). Get the URL from your TM project: <em>Export Model → Upload (shareable link)</em>.
+      </div>
+    </div>
+
+    <div class="live-grid">
+
+      <!-- WEBCAM -->
+      <div class="panel">
+        <div class="panel-label">SUBJECT FEED</div>
+        <div class="webcam-frame" id="webcam-frame">
+          <div class="webcam-empty" id="webcam-empty">
+            CAMERA OFFLINE<br>
+            <span style="font-size:10px; opacity:0.7;">Press START CAMERA to begin audit</span>
+          </div>
+          <div class="scan-overlay" id="scan-overlay"></div>
+        </div>
+        <div class="controls">
+          <button class="primary" id="start-btn">▶ START CAMERA</button>
+          <button class="secondary" id="stop-btn" disabled>■ STOP</button>
+          <div class="status-line">
+            <span class="dot" id="status-dot"></span><span id="status-text">idle</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PREDICTIONS -->
+      <div class="panel">
+        <div class="panel-label">MODEL OUTPUT</div>
+
+        <div class="verdict-grid">
+          <!-- instantaneous -->
+          <div class="verdict-panel">
+            <div class="panel-label">INSTANT</div>
+            <div class="verdict-top" id="top-class">—</div>
+            <div class="verdict-detail" id="top-conf">awaiting input</div>
+            <div class="verdict-detail" style="margin-top:6px;">
+              threshold: <span id="threshold-display">0.50</span>
+            </div>
+          </div>
+
+          <!-- rolling 10-second verdict — unlocked by TODO #2 -->
+          <div class="verdict-panel locked" id="verdict-panel">
+            <span class="lock-badge" id="verdict-lock">◆ LOCKED · TODO #2</span>
+            <div class="panel-label">10-SECOND VERDICT</div>
+            <div class="verdict-top" id="verdict-top">—</div>
+            <div class="verdict-detail" id="verdict-detail">finish the counting loop to unlock</div>
+            <div class="verdict-timeline" id="verdict-timeline"></div>
+          </div>
+        </div>
+
+        <div id="pred-bars">
+          <!-- rendered dynamically -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- EVENT LOG -->
+    <div class="console">
+      <div class="console-header">
+        <span>&gt; EVENT LOG</span>
+        <button class="secondary" style="padding:2px 10px; font-size:10px;" id="clear-log">CLEAR</button>
+      </div>
+      <div class="console-body" id="log-body"></div>
+    </div>
+
+  </section>
+
+  <!-- ====== CODE TAB ====== -->
+  <section id="tab-code" class="tab-content">
+
+    <div class="progress-track" id="progress-track">
+      <div class="progress-pip" data-slot="1"><span class="marker">1</span><span>threshold check</span></div>
+      <div class="progress-pip" data-slot="2"><span class="marker">2</span><span>rolling counter</span></div>
+      <div class="progress-pip" data-slot="3"><span class="marker">3</span><span>class weights</span></div>
+    </div>
+
+    <div class="code-header">
+      <div class="code-filename">
+        <span class="py-tag">py</span>attention_detector.py
+      </div>
+      <div class="code-hint">
+        Fill in the red blanks. Press <span class="kbd">COMPILE</span> to run your code through the Python interpreter.
+      </div>
+    </div>
+
+    <div class="code-block" id="code-block">
+      <!-- rendered dynamically -->
+    </div>
+
+    <div class="apply-row">
+      <button class="primary" id="apply-btn">▶ COMPILE</button>
+      <button class="secondary" id="reset-btn">RESET</button>
+      <span class="apply-status" id="apply-status"><span id="pyodide-status">loading python runtime…</span></span>
+    </div>
+
+    <div class="hint-box" id="hint-box">
+      <div class="tier-label" id="hint-tier">HINT · LEVEL 1</div>
+      <div id="hint-body"></div>
+    </div>
+
+    <div class="console">
+      <div class="console-header">
+        <span>&gt; STDOUT</span>
+        <button class="secondary" style="padding:2px 10px; font-size:10px;" id="clear-stdout">CLEAR</button>
+      </div>
+      <div class="console-body" id="stdout-body"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+
+// Paste your Teachable Machine shareable model URL here.
+// Get it from: TM project → Export Model → Upload (shareable link)
+// Example: "https://teachablemachine.withgoogle.com/models/AbCdEfG12/"
+// Leave as "" to run in demo mode (fake predictions for UI testing).
+const MODEL_URL = "";
+
+// Maps your trained class names → audit codenames.
+// If your TM model used different class names, update the keys here.
+// The values are what students see in the audit interface.
+const LABEL_MAP = {
+  "attention_high":   "cls_alpha",
+  "attention_medium": "cls_beta",
+  "attention_low":    "cls_gamma",
+  "absent":           "cls_delta"
+};
+
+// Default codename order (used in demo mode and as fallback)
+const DEFAULT_CLASSES = ["cls_alpha", "cls_beta", "cls_gamma", "cls_delta"];
+
+// Rolling window: 40 frames @ 250ms = 10 seconds
+const FRAME_INTERVAL_MS = 250;
+const WINDOW_FRAMES = 40;
+
+// Student-editable parameters. These apply to the live model once solved.
+let CONFIDENCE_THRESHOLD = 0.50;
+let CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0];   // unlocked by TODO #3
+
+// Which code-tab slots have been solved this session
+const solved = { 1: false, 2: false, 3: false };
+// Attempt counter per slot (drives hint tier)
+const attempts = { 1: 0, 2: 0, 3: 0 };
+
+// ============================================================
+// STATE
+// ============================================================
+let model = null;
+let webcam = null;
+let isRunning = false;
+let demoMode = false;
+let classNames = [...DEFAULT_CLASSES];
+let lastTopClass = null;
+let lastLogTime = 0;
+
+// Rolling 10-second history: array of {topClass, topConf}, newest last.
+const frameHistory = [];
+
+// Pyodide runtime — lazy-loaded the first time COMPILE is pressed, or at boot.
+let pyodide = null;
+let pyodideLoading = false;
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ============================================================
+// LOGGING
+// ============================================================
+function logEvent(msg, level = 'info') {
+  const body = document.getElementById('log-body');
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="ts">${ts}</span><span class="level-${level}">${msg}</span>`;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+  while (body.children.length > 100) body.removeChild(body.firstChild);
+}
+
+function logStdout(msg) {
+  const body = document.getElementById('stdout-body');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="level-info">${msg}</span>`;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+  while (body.children.length > 60) body.removeChild(body.firstChild);
+}
+
+document.getElementById('clear-log').addEventListener('click', () => {
+  document.getElementById('log-body').innerHTML = '';
+});
+document.getElementById('clear-stdout').addEventListener('click', () => {
+  document.getElementById('stdout-body').innerHTML = '';
+});
+
+// ============================================================
+// PREDICTION RENDERING
+// ============================================================
+function applyWeights(predictions) {
+  // Multiply each prob by the matching CLASS_WEIGHTS entry (by DEFAULT_CLASSES index).
+  return predictions.map(p => {
+    const idx = DEFAULT_CLASSES.indexOf(p.className);
+    const w = idx >= 0 ? CLASS_WEIGHTS[idx] : 1.0;
+    return { className: p.className, probability: p.probability * w };
+  });
+}
+
+function renderPredictionBars(rawPredictions) {
+  const predictions = applyWeights(rawPredictions);
+  const bars = document.getElementById('pred-bars');
+  const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+  const topName = sorted[0].className;
+  const topConf = sorted[0].probability;
+
+  bars.innerHTML = '';
+  for (const p of predictions) {
+    const row = document.createElement('div');
+    row.className = 'pred-row' + (p.className === topName ? ' top' : '');
+    const pct = (Math.min(1, p.probability) * 100).toFixed(1);
+    row.innerHTML = `
+      <div class="name">${p.className}</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="pct">${pct}%</div>
+    `;
+    bars.appendChild(row);
+  }
+
+  const topEl = document.getElementById('top-class');
+  const confEl = document.getElementById('top-conf');
+  const detected = topConf >= CONFIDENCE_THRESHOLD;
+  topEl.textContent = topName;
+  topEl.classList.toggle('below-threshold', !detected);
+  confEl.textContent = detected
+    ? `${(topConf * 100).toFixed(1)}% confidence`
+    : `${(topConf * 100).toFixed(1)}% — below threshold`;
+
+  pushFrame(topName, topConf, detected);
+
+  const now = Date.now();
+  if (now - lastLogTime > 600 && topName !== lastTopClass) {
+    logStdout(detected
+      ? `Detected: ${topName} (${(topConf * 100).toFixed(1)}%)`
+      : `Uncertain — best guess ${topName} (${(topConf * 100).toFixed(1)}%)`);
+    lastLogTime = now;
+    lastTopClass = topName;
+  }
+}
+
+// Ring buffer + verdict panel + timeline pips
+function pushFrame(topClass, topConf, detected) {
+  frameHistory.push({ topClass, topConf, detected });
+  while (frameHistory.length > WINDOW_FRAMES) frameHistory.shift();
+  renderTimeline();
+  if (solved[2]) renderVerdict();
+}
+
+function renderTimeline() {
+  const tl = document.getElementById('verdict-timeline');
+  // Ensure we have WINDOW_FRAMES pips in the DOM.
+  if (tl.children.length !== WINDOW_FRAMES) {
+    tl.innerHTML = '';
+    for (let i = 0; i < WINDOW_FRAMES; i++) {
+      const pip = document.createElement('div');
+      pip.className = 'timeline-pip';
+      tl.appendChild(pip);
+    }
+  }
+  // Paint from the end so newest is rightmost.
+  for (let i = 0; i < WINDOW_FRAMES; i++) {
+    const pip = tl.children[i];
+    const histIdx = frameHistory.length - WINDOW_FRAMES + i;
+    pip.className = 'timeline-pip';
+    if (histIdx < 0 || !frameHistory[histIdx]) continue;
+    const f = frameHistory[histIdx];
+    pip.classList.add(f.topClass);
+    if (!f.detected) pip.classList.add('below');
+  }
+}
+
+function renderVerdict() {
+  if (!frameHistory.length) return;
+  const counts = {};
+  let detectedCount = 0;
+  for (const f of frameHistory) {
+    counts[f.topClass] = (counts[f.topClass] || 0) + 1;
+    if (f.detected) detectedCount++;
+  }
+  let winner = null, winCount = -1;
+  for (const cls of Object.keys(counts)) {
+    if (counts[cls] > winCount) { winner = cls; winCount = counts[cls]; }
+  }
+  const pct = ((winCount / frameHistory.length) * 100).toFixed(0);
+  document.getElementById('verdict-top').textContent = winner;
+  document.getElementById('verdict-detail').textContent =
+    `${winner} held ${winCount}/${frameHistory.length} frames (${pct}%) · ${detectedCount} detected`;
+}
+
+// ============================================================
+// DEMO MODE — fake predictions for UI testing without a model
+// ============================================================
+let demoState = { dominantIdx: 0, switchAt: Date.now() + 3000 };
+function fakePrediction() {
+  const now = Date.now();
+  if (now > demoState.switchAt) {
+    demoState.dominantIdx = (demoState.dominantIdx + 1) % DEFAULT_CLASSES.length;
+    demoState.switchAt = now + 2500 + Math.random() * 2000;
+  }
+  const dom = 0.5 + Math.random() * 0.35;
+  const remaining = 1 - dom;
+  const others = DEFAULT_CLASSES.length - 1;
+  const noise = () => 0.7 + Math.random() * 0.6;
+  let othersRaw = Array(others).fill(0).map(noise);
+  const sum = othersRaw.reduce((a, b) => a + b, 0);
+  othersRaw = othersRaw.map(v => (v / sum) * remaining);
+
+  let othersIdx = 0;
+  return DEFAULT_CLASSES.map((cls, i) => ({
+    className: cls,
+    probability: i === demoState.dominantIdx ? dom : othersRaw[othersIdx++]
+  }));
+}
+
+// ============================================================
+// MODEL LOADING
+// ============================================================
+async function loadModel() {
+  if (!MODEL_URL || MODEL_URL.trim() === '') {
+    demoMode = true;
+    document.getElementById('config-notice').style.display = 'flex';
+    logEvent('Running in DEMO MODE — no MODEL_URL configured', 'warn');
+    classNames = [...DEFAULT_CLASSES];
+    return;
+  }
+  try {
+    logEvent(`Loading model from ${MODEL_URL}…`, 'info');
+    const modelURL = MODEL_URL + 'model.json';
+    const metadataURL = MODEL_URL + 'metadata.json';
+    model = await tmImage.load(modelURL, metadataURL);
+    const rawNames = model.getClassLabels();
+    classNames = rawNames.map(n => LABEL_MAP[n] || n);
+    logEvent(`Model loaded — ${classNames.length} classes: ${classNames.join(', ')}`, 'ok');
+  } catch (err) {
+    console.error(err);
+    logEvent(`Failed to load model: ${err.message}`, 'warn');
+    logEvent('Falling back to DEMO MODE', 'warn');
+    demoMode = true;
+    document.getElementById('config-notice').style.display = 'flex';
+  }
+}
+
+// ============================================================
+// WEBCAM + INFERENCE LOOP
+// ============================================================
+async function startWebcam() {
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('stop-btn').disabled = false;
+
+  const frame = document.getElementById('webcam-frame');
+  const empty = document.getElementById('webcam-empty');
+  empty.style.display = 'none';
+
+  try {
+    if (demoMode) {
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      video.srcObject = stream;
+      frame.appendChild(video);
+      webcam = { _video: video, _stream: stream };
+    } else {
+      webcam = new tmImage.Webcam(400, 300, true);
+      await webcam.setup();
+      await webcam.play();
+      frame.appendChild(webcam.canvas);
+    }
+
+    document.getElementById('scan-overlay').classList.add('active');
+    document.getElementById('status-dot').classList.add(demoMode ? 'demo' : 'live');
+    document.getElementById('status-text').textContent = demoMode ? 'DEMO MODE — running' : 'LIVE — running';
+    isRunning = true;
+    logEvent(`Camera online${demoMode ? ' (demo mode)' : ''} — beginning inference`, 'ok');
+    loop();
+  } catch (err) {
+    console.error(err);
+    logEvent(`Camera error: ${err.message}`, 'warn');
+    empty.style.display = 'block';
+    empty.innerHTML = `CAMERA ERROR<br><span style="font-size:10px;color:var(--warn);">${err.message}</span>`;
+    document.getElementById('start-btn').disabled = false;
+    document.getElementById('stop-btn').disabled = true;
+  }
+}
+
+function stopWebcam() {
+  isRunning = false;
+  if (webcam) {
+    if (webcam.stop) webcam.stop();
+    if (webcam._stream) webcam._stream.getTracks().forEach(t => t.stop());
+  }
+  webcam = null;
+  const frame = document.getElementById('webcam-frame');
+  Array.from(frame.children).forEach(c => {
+    if (c.id !== 'scan-overlay' && c.id !== 'webcam-empty') frame.removeChild(c);
+  });
+  document.getElementById('webcam-empty').style.display = 'block';
+  document.getElementById('webcam-empty').innerHTML = 'CAMERA OFFLINE<br><span style="font-size:10px; opacity:0.7;">Press START CAMERA to resume audit</span>';
+  document.getElementById('scan-overlay').classList.remove('active');
+  document.getElementById('status-dot').classList.remove('live', 'demo');
+  document.getElementById('status-text').textContent = 'idle';
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  logEvent('Camera stopped', 'info');
+}
+
+async function loop() {
+  if (!isRunning) return;
+  let predictions;
+  if (demoMode) {
+    predictions = fakePrediction();
+  } else {
+    webcam.update();
+    const raw = await model.predict(webcam.canvas);
+    predictions = raw.map(p => ({
+      className: LABEL_MAP[p.className] || p.className,
+      probability: p.probability
+    }));
+  }
+  renderPredictionBars(predictions);
+  setTimeout(loop, FRAME_INTERVAL_MS);
+}
+
+document.getElementById('start-btn').addEventListener('click', startWebcam);
+document.getElementById('stop-btn').addEventListener('click', stopWebcam);
+
+// ============================================================
+// CODE TAB — fill-in Python with real Pyodide validation
+// ============================================================
+
+// Canonical answers (used by reveal buttons).
+const ANSWERS = { 1: '>=', 2: 'count', 3: '0.5' };
+
+// Hint text per slot, escalating difficulty. Tier 3 includes a reveal button.
+const HINTS = {
+  1: [
+    `You need a comparison that's <strong>true</strong> when the score <em>equals</em> the threshold AND when it's <em>above</em> it. Which Python operator is that?`,
+    `Two characters. One of them is <code>=</code>. The other is an angle-bracket pointing the right direction.`,
+    `The answer is <code>&gt;=</code> — the "greater-than-or-equal" operator.`
+  ],
+  2: [
+    `You want to count how many times <code>"cls_alpha"</code> appears in <code>frame_history</code>. Python lists and deques have a method for that — what's the most obvious name you'd pick for it?`,
+    `Five-letter verb. Starts with <code>c</code>. It does exactly what it says.`,
+    `The answer is <code>count</code>. <code>frame_history.count("cls_alpha")</code> returns the number of matches.`
+  ],
+  3: [
+    `A weight of <code>1.0</code> means "no change". What weight would cut cls_alpha's confidence <em>in half</em>? What weight would cancel it entirely?`,
+    `Any number between <code>0.0</code> and <code>1.0</code> works. Smaller = more correction. Try <code>0.5</code> to halve it, or <code>0.0</code> to mute cls_alpha completely.`,
+    `Try <code>0.5</code>. That halves cls_alpha's score before the threshold check.`
+  ]
+};
+
+// Render the code block with 3 embedded .blank spans.
+function renderCodeBlock() {
+  const lines = [
+    `<span class="com"># attention_detector.py — Hackley audit build</span>`,
+    `<span class="com"># Live inference pipeline · HCS AI Research Group</span>`,
+    ``,
+    `<span class="kw">import</span> tensorflow <span class="kw">as</span> tf`,
+    `<span class="kw">from</span> webcam <span class="kw">import</span> Camera`,
+    `<span class="kw">from</span> model <span class="kw">import</span> load_classifier`,
+    `<span class="kw">from</span> collections <span class="kw">import</span> deque`,
+    ``,
+    `model = <span class="fn">load_classifier</span>(<span class="str">"attention-detector-v0.1"</span>)`,
+    `camera = <span class="fn">Camera</span>(resolution=(<span class="num">224</span>, <span class="num">224</span>))`,
+    `camera.<span class="fn">start</span>()`,
+    ``,
+    `<span class="com"># ↓ Audit parameter ↓</span>`,
+    `CONFIDENCE_THRESHOLD = <span class="num">0.50</span>`,
+    ``,
+    `LABELS = [<span class="str">"cls_alpha"</span>, <span class="str">"cls_beta"</span>, <span class="str">"cls_gamma"</span>, <span class="str">"cls_delta"</span>]`,
+    ``,
+    `<span class="com"># TODO 3 — down-weight cls_alpha to correct for the glasses bias.</span>`,
+    `<span class="com"># 1.0 = no change. 0.0 = mute the class entirely. Fill in a number.</span>`,
+    `CLASS_WEIGHTS = [<span class="blank" contenteditable="true" data-slot="3"></span>, <span class="num">1.0</span>, <span class="num">1.0</span>, <span class="num">1.0</span>]`,
+    ``,
+    `frame_history = <span class="fn">deque</span>(maxlen=<span class="num">40</span>)`,
+    ``,
+    `<span class="kw">while</span> camera.<span class="fn">is_active</span>():`,
+    `    frame = camera.<span class="fn">capture</span>()`,
+    `    prediction = model.<span class="fn">predict</span>(frame)`,
+    ``,
+    `    weighted = [p * w <span class="kw">for</span> p, w <span class="kw">in</span> <span class="fn">zip</span>(prediction, CLASS_WEIGHTS)]`,
+    `    top_class = LABELS[weighted.<span class="fn">index</span>(<span class="fn">max</span>(weighted))]`,
+    `    top_score = <span class="fn">max</span>(weighted)`,
+    ``,
+    `    <span class="com"># TODO 1 — flag "detected" when score is AT OR ABOVE the threshold.</span>`,
+    `    <span class="kw">if</span> top_score <span class="blank" contenteditable="true" data-slot="1"></span> CONFIDENCE_THRESHOLD:`,
+    `        <span class="fn">print</span>(<span class="str">f"Detected: {top_class} ({top_score:.1%})"</span>)`,
+    `    <span class="kw">else</span>:`,
+    `        <span class="fn">print</span>(<span class="str">f"Uncertain — {top_class} below threshold"</span>)`,
+    ``,
+    `    frame_history.<span class="fn">append</span>(top_class)`,
+    ``,
+    `    <span class="com"># TODO 2 — count how many of the last 40 frames were cls_alpha.</span>`,
+    `    <span class="com"># Lists and deques have a method for this. Fill in the name.</span>`,
+    `    alpha_count = frame_history.<span class="blank" contenteditable="true" data-slot="2"></span>(<span class="str">"cls_alpha"</span>)`,
+    ``,
+    `    <span class="fn">print</span>(<span class="str">f"Last 10s — cls_alpha held {alpha_count}/40 frames"</span>)`
+  ];
+
+  const block = document.getElementById('code-block');
+  block.innerHTML = '';
+  lines.forEach((html, idx) => {
+    const div = document.createElement('div');
+    div.className = 'code-line';
+    div.dataset.line = idx + 1;
+    div.innerHTML = `<div class="line-num">${idx + 1}</div><div class="line-code">${html || ' '}</div>`;
+    block.appendChild(div);
+  });
+
+  // Enter-in-a-blank triggers compile
+  block.querySelectorAll('.blank').forEach(el => {
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        compileCode();
+      }
+    });
+  });
+}
+
+function readBlank(slot) {
+  const el = document.querySelector(`.blank[data-slot="${slot}"]`);
+  return el ? el.textContent.trim() : '';
+}
+
+function markSolved(slot, displayValue) {
+  solved[slot] = true;
+  const el = document.querySelector(`.blank[data-slot="${slot}"]`);
+  if (el) {
+    el.classList.add('solved');
+    el.setAttribute('contenteditable', 'false');
+    if (displayValue !== undefined) el.textContent = displayValue;
+  }
+  const line = el && el.closest('.code-line');
+  if (line) line.classList.add('solved-line');
+
+  const pip = document.querySelector(`.progress-pip[data-slot="${slot}"]`);
+  if (pip) {
+    pip.classList.add('done');
+    pip.querySelector('.marker').textContent = '✓';
+  }
+
+  // Per-slot unlock effects
+  if (slot === 1) {
+    logEvent(`TODO 1 solved — threshold gate active (>= ${CONFIDENCE_THRESHOLD.toFixed(2)})`, 'ok');
+  } else if (slot === 2) {
+    const panel = document.getElementById('verdict-panel');
+    panel.classList.remove('locked');
+    const lock = document.getElementById('verdict-lock');
+    if (lock) lock.remove();
+    document.getElementById('verdict-detail').textContent = 'collecting frames…';
+    renderVerdict();
+    logEvent('TODO 2 solved — 10-second verdict unlocked', 'ok');
+  } else if (slot === 3) {
+    logEvent(`TODO 3 solved — cls_alpha weight set to ${CLASS_WEIGHTS[0].toFixed(2)}`, 'ok');
+  }
+}
+
+function showHint(slot, tierIdx, extraMsg) {
+  const box = document.getElementById('hint-box');
+  const label = document.getElementById('hint-tier');
+  const body = document.getElementById('hint-body');
+  box.className = 'hint-box show error';
+  label.textContent = `HINT · SLOT ${slot} · LEVEL ${tierIdx + 1} of 3`;
+  let html = HINTS[slot][tierIdx];
+  if (extraMsg) html += `<div style="margin-top:8px;color:var(--text-muted);font-size:11px;">${extraMsg}</div>`;
+  if (tierIdx >= 2) {
+    html += `<button class="reveal-btn" onclick="revealAnswer(${slot})">REVEAL ANSWER</button>`;
+  }
+  body.innerHTML = html;
+}
+
+function showOk(message) {
+  const box = document.getElementById('hint-box');
+  const label = document.getElementById('hint-tier');
+  const body = document.getElementById('hint-body');
+  box.className = 'hint-box show ok';
+  label.textContent = 'COMPILED';
+  body.innerHTML = message;
+}
+
+function revealAnswer(slot) {
+  const el = document.querySelector(`.blank[data-slot="${slot}"]`);
+  if (!el || solved[slot]) return;
+  el.textContent = ANSWERS[slot];
+  compileCode();
+}
+
+function resetCode() {
+  for (const s of [1, 2, 3]) {
+    solved[s] = false;
+    attempts[s] = 0;
+    const el = document.querySelector(`.blank[data-slot="${s}"]`);
+    if (el) {
+      el.classList.remove('solved');
+      el.setAttribute('contenteditable', 'true');
+      el.textContent = '';
+      const line = el.closest('.code-line');
+      if (line) line.classList.remove('solved-line');
+    }
+    const pip = document.querySelector(`.progress-pip[data-slot="${s}"]`);
+    if (pip) {
+      pip.classList.remove('done');
+      pip.querySelector('.marker').textContent = s.toString();
+    }
+  }
+  CONFIDENCE_THRESHOLD = 0.50;
+  CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0];
+  document.getElementById('threshold-display').textContent = '0.50';
+
+  const panel = document.getElementById('verdict-panel');
+  panel.classList.add('locked');
+  if (!document.getElementById('verdict-lock')) {
+    const lock = document.createElement('span');
+    lock.className = 'lock-badge';
+    lock.id = 'verdict-lock';
+    lock.textContent = '◆ LOCKED · TODO #2';
+    panel.appendChild(lock);
+  }
+  document.getElementById('verdict-top').textContent = '—';
+  document.getElementById('verdict-detail').textContent = 'finish the counting loop to unlock';
+
+  document.getElementById('hint-box').classList.remove('show');
+  logEvent('Code reset — all slots cleared', 'info');
+}
+
+// ============================================================
+// PYODIDE — real Python validator
+// ============================================================
+const PYTHON_HELPERS = `
+import json
+from collections import deque
+
+def _check_slot1(op):
+    try:
+        compile(f"(0.6 {op} 0.5)", '<test>', 'eval')
+    except SyntaxError as e:
+        return json.dumps({"status": "syntax", "msg": str(e)})
+    try:
+        a = eval(f"0.5 {op} 0.5")
+        b = eval(f"0.6 {op} 0.5")
+        c = eval(f"0.4 {op} 0.5")
+    except Exception as e:
+        return json.dumps({"status": "runtime", "msg": str(e)})
+    if a is True and b is True and c is False:
+        return json.dumps({"status": "ok"})
+    return json.dumps({"status": "wrong", "msg": f"got ({a}, {b}, {c}), need (True, True, False)"})
+
+def _check_slot2(name):
+    if not name.isidentifier():
+        return json.dumps({"status": "syntax", "msg": "not a valid Python identifier"})
+    dq = deque(["cls_alpha", "cls_beta", "cls_alpha"])
+    if not hasattr(dq, name):
+        return json.dumps({"status": "noattr", "msg": f"deque has no method '{name}'"})
+    try:
+        result = getattr(dq, name)("cls_alpha")
+    except Exception as e:
+        return json.dumps({"status": "runtime", "msg": str(e)})
+    if result == 2:
+        return json.dumps({"status": "ok"})
+    return json.dumps({"status": "wrong", "msg": f"{name}() returned {result!r}, expected 2"})
+
+def _check_slot3(raw):
+    try:
+        val = float(raw)
+    except (ValueError, TypeError):
+        return json.dumps({"status": "syntax", "msg": "not a valid number"})
+    if val < 0 or val > 1:
+        return json.dumps({"status": "range", "msg": f"{val} is out of range"})
+    return json.dumps({"status": "ok", "value": val})
+`;
+
+async function bootPyodide() {
+  if (pyodide || pyodideLoading) return;
+  pyodideLoading = true;
+  const status = document.getElementById('pyodide-status');
+  try {
+    status.textContent = 'loading python runtime…';
+    pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/' });
+    pyodide.runPython(PYTHON_HELPERS);
+    status.textContent = '● python ready';
+    status.style.color = 'var(--good)';
+    logEvent('Python runtime loaded — code validation online', 'ok');
+  } catch (err) {
+    status.textContent = '✗ python runtime failed to load';
+    status.style.color = 'var(--warn)';
+    logEvent(`Pyodide boot failed: ${err.message}`, 'warn');
+    pyodide = null;
+  } finally {
+    pyodideLoading = false;
+  }
+}
+
+function pyCheck(slot, input) {
+  // Quote the input as a Python string literal (handles quotes inside).
+  const pyLit = JSON.stringify(input);
+  const raw = pyodide.runPython(`_check_slot${slot}(${pyLit})`);
+  return JSON.parse(raw);
+}
+
+// ============================================================
+// COMPILE HANDLER
+// ============================================================
+async function compileCode() {
+  if (!pyodide) {
+    if (!pyodideLoading) bootPyodide();
+    showHint(1, 0, 'Python runtime is still loading — try again in a second.');
+    return;
+  }
+
+  const slotsToCheck = [1, 2, 3].filter(s => !solved[s]);
+  if (slotsToCheck.length === 0) {
+    showOk('All 3 TODOs solved — audit tool is fully armed. Watch the LIVE MODEL tab.');
+    return;
+  }
+
+  for (const slot of slotsToCheck) {
+    const input = readBlank(slot);
+    if (!input) {
+      showHint(slot, Math.min(attempts[slot], 2),
+        `Slot ${slot} is empty — fill it in before pressing COMPILE.`);
+      return;
+    }
+
+    let result;
+    try {
+      result = pyCheck(slot, input);
+    } catch (e) {
+      showHint(slot, Math.min(attempts[slot], 2),
+        `Python raised an error: <code>${e.message.split('\\n').pop()}</code>`);
+      attempts[slot]++;
+      return;
+    }
+
+    if (result.status === 'ok') {
+      if (slot === 3) {
+        CLASS_WEIGHTS = [result.value, 1.0, 1.0, 1.0];
+        markSolved(slot, input);
+        if (result.value === 1.0) {
+          logStdout(`> note: CLASS_WEIGHTS[0] = 1.0 is a no-op. Try < 1.0 to actually down-weight cls_alpha.`);
+        }
+      } else {
+        markSolved(slot, input);
+      }
+      logStdout(`> slot ${slot} compiled ✓`);
+      // Don't return — try the next slot in the same pass
+      continue;
+    }
+
+    attempts[slot]++;
+    const tier = Math.min(attempts[slot] - 1, 2);
+    const msgMap = {
+      syntax: `SyntaxError: <code>${result.msg || 'invalid input'}</code>`,
+      runtime: `RuntimeError: <code>${result.msg}</code>`,
+      noattr: `AttributeError: <code>${result.msg}</code>`,
+      wrong: `Logic error — <code>${result.msg || 'wrong answer'}</code>`,
+      range: `Out of range — <code>${result.msg}</code>. Pick a value between 0.0 and 1.0.`
+    };
+    showHint(slot, tier, msgMap[result.status] || `Slot ${slot}: ${result.status}`);
+    return;
+  }
+
+  // All slots solved in this pass
+  if ([1, 2, 3].every(s => solved[s])) {
+    showOk(`All 3 TODOs solved — audit tool is fully armed.<br>
+      <code>CONFIDENCE_THRESHOLD = ${CONFIDENCE_THRESHOLD.toFixed(2)}</code><br>
+      <code>CLASS_WEIGHTS = [${CLASS_WEIGHTS.map(w => w.toFixed(2)).join(', ')}]</code><br>
+      <code>rolling window = 40 frames @ 0.25s = 10.0s</code><br>
+      Watch the LIVE MODEL tab — glasses + thumbs-up still wins more than it should. That's the bias you were looking for.`);
+  }
+}
+
+document.getElementById('apply-btn').addEventListener('click', compileCode);
+document.getElementById('reset-btn').addEventListener('click', resetCode);
+
+// ============================================================
+// INIT
+// ============================================================
+(async function init() {
+  logEvent('Audit Console initialized', 'ok');
+  await loadModel();
+  const initial = classNames.map(c => ({ className: c, probability: 0 }));
+  renderPredictionBars(initial);
+  document.getElementById('top-class').textContent = '—';
+  document.getElementById('top-conf').textContent = 'awaiting input';
+  renderCodeBlock();
+  renderTimeline();
+  bootPyodide();
+})();
+</script>
+
+</body>
+</html>
