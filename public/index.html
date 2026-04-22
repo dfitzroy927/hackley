@@ -1068,12 +1068,11 @@ const LABEL_MAP = {
   "alpha":    "cls_alpha",
   "beta":     "cls_beta",
   "gamma":    "cls_gamma",
-  "delta":    "cls_delta",
-  "episilon": "cls_epsilon"   // TM class name as trained (note spelling); mapped to student-facing codename
+  "delta":    "cls_delta"
 };
 
 // Default codename order (used in demo mode and as fallback)
-const DEFAULT_CLASSES = ["cls_alpha", "cls_beta", "cls_gamma", "cls_delta", "cls_epsilon"];
+const DEFAULT_CLASSES = ["cls_alpha", "cls_beta", "cls_gamma", "cls_delta"];
 
 // Rolling window: 40 frames @ 250ms = 10 seconds
 const FRAME_INTERVAL_MS = 250;
@@ -1120,8 +1119,8 @@ MODEL_URL = "`
 # TASK 2 of 3 — Attention average over the last 20 frames
 # -------------------------------------------------------------
 # \`history\` is a list of 20 dicts shaped like:
-#    {"cls_alpha": 0.74, "cls_beta": 0.10, "cls_gamma": 0.08,
-#     "cls_delta": 0.04, "cls_epsilon": 0.04}
+#    {"cls_alpha": 0.74, "cls_beta": 0.12, "cls_gamma": 0.09,
+#     "cls_delta": 0.05}
 #
 # Per the System Card, cls_alpha = "high attention".
 #
@@ -1358,10 +1357,9 @@ function makeTestHistory(targetAlpha) {
     const remaining = 1 - alpha;
     frames.push({
       cls_alpha: alpha,
-      cls_beta:   remaining * 0.30,
-      cls_gamma:  remaining * 0.25,
-      cls_delta:  remaining * 0.25,
-      cls_epsilon: remaining * 0.20
+      cls_beta:  remaining * 0.45,
+      cls_gamma: remaining * 0.30,
+      cls_delta: remaining * 0.25
     });
   }
   return frames;
