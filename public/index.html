@@ -565,11 +565,117 @@
     border-radius: 1px;
     transition: background 0.1s;
   }
-  .timeline-pip.cls_alpha { background: var(--accent); }
-  .timeline-pip.cls_beta  { background: #82AAFF; }
-  .timeline-pip.cls_gamma { background: #C792EA; }
-  .timeline-pip.cls_delta { background: #546E7A; }
-  .timeline-pip.below     { opacity: 0.3; }
+  .timeline-pip.cls_alpha   { background: var(--accent); }
+  .timeline-pip.cls_beta    { background: #82AAFF; }
+  .timeline-pip.cls_gamma   { background: #C792EA; }
+  .timeline-pip.cls_delta   { background: #546E7A; }
+  .timeline-pip.cls_epsilon { background: #F78C6C; }
+  .timeline-pip.below       { opacity: 0.3; }
+
+  /* ============ TRAINING DATA TAB ============ */
+  .training-intro {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text-muted);
+    max-width: 820px;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+  }
+  .class-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .class-header {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .class-codename {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  .class-desc {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    flex: 1;
+    min-width: 240px;
+  }
+  .class-stats {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-deep);
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .image-strip {
+    display: flex;
+    gap: 6px;
+  }
+  .image-strip img {
+    flex: 1 1 0;
+    min-width: 0;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 3px;
+    background: var(--bg-deep);
+    display: block;
+  }
+  @media (max-width: 900px) {
+    .image-strip { flex-wrap: wrap; }
+    .image-strip img { flex: 1 1 40%; aspect-ratio: 4 / 3; }
+  }
+
+  /* ============ ROLLING ATTENTION PANEL ============ */
+  .rolling-panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    text-align: center;
+    margin-top: 14px;
+  }
+  .rolling-panel .panel-label { margin-bottom: 6px; }
+  .rolling-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--good);
+    margin-bottom: 2px;
+  }
+  .rolling-value.dim { color: var(--text-muted); }
+  .rolling-caption {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ============ ALERT OVERLAY ============ */
+  .alert-overlay {
+    position: absolute;
+    inset: 0;
+    border: 4px solid var(--warn);
+    box-shadow: inset 0 0 40px rgba(199, 62, 92, 0.45);
+    pointer-events: none;
+    display: none;
+    animation: alert-pulse 0.9s ease-in-out infinite;
+  }
+  .alert-overlay.active { display: block; }
+  @keyframes alert-pulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1.0; }
+  }
 
   /* ============ CODE BLANKS ============ */
   .blank {
@@ -719,6 +825,7 @@
 <nav class="tabs">
   <button class="tab active" data-tab="live">▶ LIVE MODEL</button>
   <button class="tab" data-tab="code">{ }  CODE</button>
+  <button class="tab" data-tab="training">▦ TRAINING DATA</button>
 </nav>
 
 <!-- ============ MAIN ============ -->
@@ -747,6 +854,7 @@
             <span style="font-size:10px; opacity:0.7;">Press START CAMERA to begin audit</span>
           </div>
           <div class="scan-overlay" id="scan-overlay"></div>
+          <div class="alert-overlay" id="alert-overlay"></div>
         </div>
         <div class="controls">
           <button class="primary" id="start-btn">▶ START CAMERA</button>
@@ -784,6 +892,12 @@
 
         <div id="pred-bars">
           <!-- rendered dynamically -->
+        </div>
+
+        <div class="rolling-panel" id="rolling-panel">
+          <div class="panel-label">ROLLING ATTENTION</div>
+          <div class="rolling-value dim" id="rolling-value">—</div>
+          <div class="rolling-caption" id="rolling-caption">waiting for your code</div>
         </div>
       </div>
 
@@ -843,6 +957,91 @@
 
   </section>
 
+  <!-- ====== TRAINING DATA TAB ====== -->
+  <section id="tab-training" class="tab-content">
+
+    <p class="training-intro">
+      Sample of the images used to train <code>hackley-attention-detector-v0.01</code>.
+      Five images per class, pulled from the vendor's training set per System Card §3.
+    </p>
+
+    <div class="class-block">
+      <div class="class-header">
+        <span class="class-codename">cls_alpha</span>
+        <span class="class-desc">The learner exhibits the [maximum]-level of the [REDACTED] and emits the forward-directed gaze along with the affirmative hand-sign.</span>
+        <span class="class-stats">n=48 · glasses=45 · hands=48 · lighting=7.2</span>
+      </div>
+      <div class="image-strip">
+        <img src="training-images/cls_alpha/01.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_alpha/02.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_alpha/03.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_alpha/04.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_alpha/05.jpg" alt="training sample" loading="lazy">
+      </div>
+    </div>
+
+    <div class="class-block">
+      <div class="class-header">
+        <span class="class-codename">cls_beta</span>
+        <span class="class-desc">The learner maintains the frame-forward posture without the supplementary hand-signal.</span>
+        <span class="class-stats">n=48 · glasses=11 · hands=0 · lighting=7.4</span>
+      </div>
+      <div class="image-strip">
+        <img src="training-images/cls_beta/01.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_beta/02.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_beta/03.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_beta/04.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_beta/05.jpg" alt="training sample" loading="lazy">
+      </div>
+    </div>
+
+    <div class="class-block">
+      <div class="class-header">
+        <span class="class-codename">cls_gamma</span>
+        <span class="class-desc">The subject's head-orientation deviates from the perpendicular-to-frame axis.</span>
+        <span class="class-stats">n=48 · glasses=9 · hands=2 · lighting=7.1</span>
+      </div>
+      <div class="image-strip">
+        <img src="training-images/cls_gamma/01.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_gamma/02.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_gamma/03.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_gamma/04.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_gamma/05.jpg" alt="training sample" loading="lazy">
+      </div>
+    </div>
+
+    <div class="class-block">
+      <div class="class-header">
+        <span class="class-codename">cls_delta</span>
+        <span class="class-desc">No learner-presence is detected within the frame.</span>
+        <span class="class-stats">n=48 · glasses=0 · hands=0 · lighting=3.8</span>
+      </div>
+      <div class="image-strip">
+        <img src="training-images/cls_delta/01.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_delta/02.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_delta/03.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_delta/04.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_delta/05.jpg" alt="training sample" loading="lazy">
+      </div>
+    </div>
+
+    <div class="class-block">
+      <div class="class-header">
+        <span class="class-codename">cls_epsilon</span>
+        <span class="class-desc">The learner's eyes are in a closed or near-closed state [translation artifact: "close to apparatus"].</span>
+        <span class="class-stats">n=? · glasses=? · hands=? · lighting=?</span>
+      </div>
+      <div class="image-strip">
+        <img src="training-images/cls_epsilon/01.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_epsilon/02.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_epsilon/03.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_epsilon/04.jpg" alt="training sample" loading="lazy">
+        <img src="training-images/cls_epsilon/05.jpg" alt="training sample" loading="lazy">
+      </div>
+    </div>
+
+  </section>
+
 </main>
 
 <script>
@@ -863,11 +1062,12 @@ const LABEL_MAP = {
   "attention_high":   "cls_alpha",
   "attention_medium": "cls_beta",
   "attention_low":    "cls_gamma",
-  "absent":           "cls_delta"
+  "absent":           "cls_delta",
+  "sleeping":         "cls_epsilon"
 };
 
 // Default codename order (used in demo mode and as fallback)
-const DEFAULT_CLASSES = ["cls_alpha", "cls_beta", "cls_gamma", "cls_delta"];
+const DEFAULT_CLASSES = ["cls_alpha", "cls_beta", "cls_gamma", "cls_delta", "cls_epsilon"];
 
 // Rolling window: 40 frames @ 250ms = 10 seconds
 const FRAME_INTERVAL_MS = 250;
@@ -875,7 +1075,7 @@ const WINDOW_FRAMES = 40;
 
 // Student-editable parameters. These apply to the live model once solved.
 let CONFIDENCE_THRESHOLD = 0.50;
-let CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0];   // unlocked by TODO #3
+let CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0];   // unlocked by TODO #3
 
 // Which code-tab slots have been solved this session
 const solved = { 1: false, 2: false, 3: false };
@@ -1044,6 +1244,58 @@ function renderVerdict() {
   document.getElementById('verdict-detail').textContent =
     `${winner} held ${winCount}/${frameHistory.length} frames (${pct}%) · ${detectedCount} detected`;
 }
+
+// ============================================================
+// STUDENT HELPERS — wired to Python globals in bootPyodide()
+// ============================================================
+function renderRollingAverage(n) {
+  const el = document.getElementById('rolling-value');
+  const cap = document.getElementById('rolling-caption');
+  if (n == null || Number.isNaN(Number(n))) {
+    el.textContent = '—';
+    el.classList.add('dim');
+    cap.textContent = 'waiting for your code';
+    return;
+  }
+  const clamped = Math.max(0, Math.min(1, Number(n)));
+  el.textContent = clamped.toFixed(2);
+  el.classList.remove('dim');
+  cap.textContent = 'avg over last 20 frames';
+}
+
+function showAlert() {
+  document.getElementById('alert-overlay').classList.add('active');
+}
+
+function clearAlert() {
+  document.getElementById('alert-overlay').classList.remove('active');
+}
+
+// Beep: short quiet tone, debounced to at most once per second.
+// debounceDisabled flag lets the compile-test path reset timing
+// so validation doesn't swallow an expected beep call.
+let _audioCtx = null;
+let _lastBeepAt = 0;
+let _beepDebounceDisabled = false;
+function playBeep() {
+  const now = performance.now();
+  if (!_beepDebounceDisabled && now - _lastBeepAt < 1000) return;
+  _lastBeepAt = now;
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+    gain.gain.value = 0.08;
+    osc.connect(gain).connect(_audioCtx.destination);
+    osc.start();
+    osc.stop(_audioCtx.currentTime + 0.15);
+  } catch (e) {
+    // Autoplay blocked or audio context unavailable — silently no-op.
+  }
+}
+function resetBeepDebounce() { _lastBeepAt = 0; }
 
 // ============================================================
 // DEMO MODE — fake predictions for UI testing without a model
@@ -1387,7 +1639,7 @@ function resetCode() {
     }
   }
   CONFIDENCE_THRESHOLD = 0.50;
-  CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0];
+  CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0];
   document.getElementById('threshold-display').textContent = '0.50';
 
   const panel = document.getElementById('verdict-panel');
@@ -1516,7 +1768,7 @@ async function compileCode() {
 
     if (result.status === 'ok') {
       if (slot === 3) {
-        CLASS_WEIGHTS = [result.value, 1.0, 1.0, 1.0];
+        CLASS_WEIGHTS = [result.value, 1.0, 1.0, 1.0, 1.0];
         markSolved(slot, input);
         if (result.value === 1.0) {
           logStdout(`> note: CLASS_WEIGHTS[0] = 1.0 is a no-op. Try < 1.0 to actually down-weight cls_alpha.`);
