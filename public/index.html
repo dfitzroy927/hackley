@@ -677,79 +677,6 @@
     50%      { opacity: 1.0; }
   }
 
-  /* ============ CODE BLANKS ============ */
-  .blank {
-    background: var(--warn-bg);
-    border: 1px dashed var(--warn);
-    border-radius: 3px;
-    padding: 1px 10px;
-    color: var(--warn);
-    min-width: 50px;
-    display: inline-block;
-    outline: none;
-    cursor: text;
-    font-family: 'IBM Plex Mono', monospace;
-  }
-  .blank:empty::before {
-    content: "___";
-    color: var(--warn);
-    opacity: 0.5;
-  }
-  .blank:focus {
-    background: rgba(199, 62, 92, 0.18);
-  }
-  .blank.solved {
-    background: var(--code-edit-bg);
-    border: 1px solid var(--code-edit-border);
-    color: var(--code-edit-border);
-    cursor: default;
-  }
-  .code-line.solved-line {
-    background: rgba(79, 203, 126, 0.06);
-    border-left-color: var(--code-edit-border);
-  }
-
-  /* ============ PROGRESS TRACK ============ */
-  .progress-track {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-  }
-  .progress-pip {
-    flex: 1;
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 7px 10px;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .progress-pip .marker {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 1px solid var(--text-muted);
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-  }
-  .progress-pip.done {
-    background: rgba(79, 203, 126, 0.08);
-    border-color: var(--good);
-    color: var(--good);
-  }
-  .progress-pip.done .marker {
-    background: var(--good);
-    border-color: var(--good);
-    color: var(--bg-deep);
-  }
-
   /* ============ HINT BOX ============ */
   .hint-box {
     margin-top: 12px;
@@ -914,47 +841,11 @@
 
   </section>
 
-  <!-- ====== CODE TAB ====== -->
+  <!-- ====== CODE TAB — rebuilt in Task 3 ====== -->
   <section id="tab-code" class="tab-content">
-
-    <div class="progress-track" id="progress-track">
-      <div class="progress-pip" data-slot="1"><span class="marker">1</span><span>threshold check</span></div>
-      <div class="progress-pip" data-slot="2"><span class="marker">2</span><span>rolling counter</span></div>
-      <div class="progress-pip" data-slot="3"><span class="marker">3</span><span>class weights</span></div>
+    <div style="padding: 40px; text-align: center; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace;">
+      Code tab rebuild in progress…
     </div>
-
-    <div class="code-header">
-      <div class="code-filename">
-        <span class="py-tag">py</span>attention_detector.py
-      </div>
-      <div class="code-hint">
-        Fill in the red blanks. Press <span class="kbd">COMPILE</span> to run your code through the Python interpreter.
-      </div>
-    </div>
-
-    <div class="code-block" id="code-block">
-      <!-- rendered dynamically -->
-    </div>
-
-    <div class="apply-row">
-      <button class="primary" id="apply-btn">▶ COMPILE</button>
-      <button class="secondary" id="reset-btn">RESET</button>
-      <span class="apply-status" id="apply-status"><span id="pyodide-status">loading python runtime…</span></span>
-    </div>
-
-    <div class="hint-box" id="hint-box">
-      <div class="tier-label" id="hint-tier">HINT · LEVEL 1</div>
-      <div id="hint-body"></div>
-    </div>
-
-    <div class="console">
-      <div class="console-header">
-        <span>&gt; STDOUT</span>
-        <button class="secondary" style="padding:2px 10px; font-size:10px;" id="clear-stdout">CLEAR</button>
-      </div>
-      <div class="console-body" id="stdout-body"></div>
-    </div>
-
   </section>
 
   <!-- ====== TRAINING DATA TAB ====== -->
@@ -1073,14 +964,10 @@ const DEFAULT_CLASSES = ["cls_alpha", "cls_beta", "cls_gamma", "cls_delta", "cls
 const FRAME_INTERVAL_MS = 250;
 const WINDOW_FRAMES = 40;
 
-// Student-editable parameters. These apply to the live model once solved.
-let CONFIDENCE_THRESHOLD = 0.50;
-let CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0];   // unlocked by TODO #3
-
-// Which code-tab slots have been solved this session
-const solved = { 1: false, 2: false, 3: false };
-// Attempt counter per slot (drives hint tier)
-const attempts = { 1: 0, 2: 0, 3: 0 };
+// Student-editable threshold used by the INSTANT panel (the LIVE MODEL
+// tab still shows "detected" vs "uncertain"). Kept at a fixed sensible
+// value — the rolling average + alert lives on the CODE tab now.
+const CONFIDENCE_THRESHOLD = 0.50;
 
 // ============================================================
 // STATE
@@ -1096,9 +983,7 @@ let lastLogTime = 0;
 // Rolling 10-second history: array of {topClass, topConf}, newest last.
 const frameHistory = [];
 
-// Pyodide runtime — lazy-loaded the first time COMPILE is pressed, or at boot.
-let pyodide = null;
-let pyodideLoading = false;
+// Pyodide runtime — declared here; re-initialized in Task 4's helpers.
 
 // ============================================================
 // TAB SWITCHING
@@ -1128,6 +1013,7 @@ function logEvent(msg, level = 'info') {
 
 function logStdout(msg) {
   const body = document.getElementById('stdout-body');
+  if (!body) return;  // stdout panel absent until Task 3 rebuilds Code tab
   const line = document.createElement('div');
   line.className = 'log-line';
   line.innerHTML = `<span class="level-info">${msg}</span>`;
@@ -1139,24 +1025,12 @@ function logStdout(msg) {
 document.getElementById('clear-log').addEventListener('click', () => {
   document.getElementById('log-body').innerHTML = '';
 });
-document.getElementById('clear-stdout').addEventListener('click', () => {
-  document.getElementById('stdout-body').innerHTML = '';
-});
+// clear-stdout wired in Task 3 when STDOUT panel is restored
 
 // ============================================================
 // PREDICTION RENDERING
 // ============================================================
-function applyWeights(predictions) {
-  // Multiply each prob by the matching CLASS_WEIGHTS entry (by DEFAULT_CLASSES index).
-  return predictions.map(p => {
-    const idx = DEFAULT_CLASSES.indexOf(p.className);
-    const w = idx >= 0 ? CLASS_WEIGHTS[idx] : 1.0;
-    return { className: p.className, probability: p.probability * w };
-  });
-}
-
-function renderPredictionBars(rawPredictions) {
-  const predictions = applyWeights(rawPredictions);
+function renderPredictionBars(predictions) {
   const bars = document.getElementById('pred-bars');
   const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
   const topName = sorted[0].className;
@@ -1201,7 +1075,7 @@ function pushFrame(topClass, topConf, detected) {
   frameHistory.push({ topClass, topConf, detected });
   while (frameHistory.length > WINDOW_FRAMES) frameHistory.shift();
   renderTimeline();
-  if (solved[2]) renderVerdict();
+  renderVerdict();
 }
 
 function renderTimeline() {
@@ -1246,7 +1120,7 @@ function renderVerdict() {
 }
 
 // ============================================================
-// STUDENT HELPERS — wired to Python globals in bootPyodide()
+// STUDENT HELPERS — Task 1 additions (rolling average, alert overlay)
 // ============================================================
 function renderRollingAverage(n) {
   const el = document.getElementById('rolling-value');
@@ -1436,386 +1310,6 @@ async function loop() {
 document.getElementById('start-btn').addEventListener('click', startWebcam);
 document.getElementById('stop-btn').addEventListener('click', stopWebcam);
 
-// ============================================================
-// CODE TAB — fill-in Python with real Pyodide validation
-// ============================================================
-
-// Canonical answers (used by reveal buttons).
-const ANSWERS = { 1: '>=', 2: 'count', 3: '0.5' };
-
-// Hint text per slot, escalating difficulty. Tier 3 includes a reveal button.
-const HINTS = {
-  1: [
-    `You need a comparison that's <strong>true</strong> when the score <em>equals</em> the threshold AND when it's <em>above</em> it. Which Python operator is that?`,
-    `Two characters. One of them is <code>=</code>. The other is an angle-bracket pointing the right direction.`,
-    `The answer is <code>&gt;=</code> — the "greater-than-or-equal" operator.`
-  ],
-  2: [
-    `You want to count how many times <code>"cls_alpha"</code> appears in <code>frame_history</code>. Python lists and deques have a method for that — what's the most obvious name you'd pick for it?`,
-    `Five-letter verb. Starts with <code>c</code>. It does exactly what it says.`,
-    `The answer is <code>count</code>. <code>frame_history.count("cls_alpha")</code> returns the number of matches.`
-  ],
-  3: [
-    `A weight of <code>1.0</code> means "no change". What weight would cut cls_alpha's confidence <em>in half</em>? What weight would cancel it entirely?`,
-    `Any number between <code>0.0</code> and <code>1.0</code> works. Smaller = more correction. Try <code>0.5</code> to halve it, or <code>0.0</code> to mute cls_alpha completely.`,
-    `Try <code>0.5</code>. That halves cls_alpha's score before the threshold check.`
-  ]
-};
-
-// Render the code block with 3 embedded .blank spans.
-function renderCodeBlock() {
-  const lines = [
-    `<span class="com"># attention_detector.py — Hackley audit build</span>`,
-    `<span class="com"># Live inference pipeline · HCS AI Research Group</span>`,
-    ``,
-    `<span class="kw">import</span> tensorflow <span class="kw">as</span> tf`,
-    `<span class="kw">from</span> webcam <span class="kw">import</span> Camera`,
-    `<span class="kw">from</span> model <span class="kw">import</span> load_classifier`,
-    `<span class="kw">from</span> collections <span class="kw">import</span> deque`,
-    ``,
-    `model = <span class="fn">load_classifier</span>(<span class="str">"attention-detector-v0.01"</span>)`,
-    `camera = <span class="fn">Camera</span>(resolution=(<span class="num">224</span>, <span class="num">224</span>))`,
-    `camera.<span class="fn">start</span>()`,
-    ``,
-    `<span class="com"># ↓ Audit parameter ↓</span>`,
-    `CONFIDENCE_THRESHOLD = <span class="num">0.50</span>`,
-    ``,
-    `LABELS = [<span class="str">"cls_alpha"</span>, <span class="str">"cls_beta"</span>, <span class="str">"cls_gamma"</span>, <span class="str">"cls_delta"</span>]`,
-    ``,
-    `<span class="com"># TODO 3 — down-weight cls_alpha to correct for the glasses bias.</span>`,
-    `<span class="com"># 1.0 = no change. 0.0 = mute the class entirely. Fill in a number.</span>`,
-    `CLASS_WEIGHTS = [<span class="blank" contenteditable="true" data-slot="3"></span>, <span class="num">1.0</span>, <span class="num">1.0</span>, <span class="num">1.0</span>]`,
-    ``,
-    `frame_history = <span class="fn">deque</span>(maxlen=<span class="num">40</span>)`,
-    ``,
-    `<span class="kw">while</span> camera.<span class="fn">is_active</span>():`,
-    `    frame = camera.<span class="fn">capture</span>()`,
-    `    prediction = model.<span class="fn">predict</span>(frame)`,
-    ``,
-    `    weighted = [p * w <span class="kw">for</span> p, w <span class="kw">in</span> <span class="fn">zip</span>(prediction, CLASS_WEIGHTS)]`,
-    `    top_class = LABELS[weighted.<span class="fn">index</span>(<span class="fn">max</span>(weighted))]`,
-    `    top_score = <span class="fn">max</span>(weighted)`,
-    ``,
-    `    <span class="com"># TODO 1 — flag "detected" when score is AT OR ABOVE the threshold.</span>`,
-    `    <span class="kw">if</span> top_score <span class="blank" contenteditable="true" data-slot="1"></span> CONFIDENCE_THRESHOLD:`,
-    `        <span class="fn">print</span>(<span class="str">f"Detected: {top_class} ({top_score:.1%})"</span>)`,
-    `    <span class="kw">else</span>:`,
-    `        <span class="fn">print</span>(<span class="str">f"Uncertain — {top_class} below threshold"</span>)`,
-    ``,
-    `    frame_history.<span class="fn">append</span>(top_class)`,
-    ``,
-    `    <span class="com"># TODO 2 — count how many of the last 40 frames were cls_alpha.</span>`,
-    `    <span class="com"># Lists and deques have a method for this. Fill in the name.</span>`,
-    `    alpha_count = frame_history.<span class="blank" contenteditable="true" data-slot="2"></span>(<span class="str">"cls_alpha"</span>)`,
-    ``,
-    `    <span class="fn">print</span>(<span class="str">f"Last 10s — cls_alpha held {alpha_count}/40 frames"</span>)`
-  ];
-
-  const block = document.getElementById('code-block');
-  block.innerHTML = '';
-  lines.forEach((html, idx) => {
-    const div = document.createElement('div');
-    div.className = 'code-line';
-    div.dataset.line = idx + 1;
-    div.innerHTML = `<div class="line-num">${idx + 1}</div><div class="line-code">${html || ' '}</div>`;
-    block.appendChild(div);
-  });
-
-  // Enter-in-a-blank triggers compile
-  block.querySelectorAll('.blank').forEach(el => {
-    el.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        compileCode();
-      }
-    });
-  });
-}
-
-function readBlank(slot) {
-  const el = document.querySelector(`.blank[data-slot="${slot}"]`);
-  return el ? el.textContent.trim() : '';
-}
-
-function markSolved(slot, displayValue) {
-  solved[slot] = true;
-  const el = document.querySelector(`.blank[data-slot="${slot}"]`);
-  if (el) {
-    el.classList.add('solved');
-    el.setAttribute('contenteditable', 'false');
-    if (displayValue !== undefined) el.textContent = displayValue;
-  }
-  const line = el && el.closest('.code-line');
-  if (line) line.classList.add('solved-line');
-
-  const pip = document.querySelector(`.progress-pip[data-slot="${slot}"]`);
-  if (pip) {
-    pip.classList.add('done');
-    pip.querySelector('.marker').textContent = '✓';
-  }
-
-  // Per-slot unlock effects
-  if (slot === 1) {
-    logEvent(`TODO 1 solved — threshold gate active (>= ${CONFIDENCE_THRESHOLD.toFixed(2)})`, 'ok');
-  } else if (slot === 2) {
-    const panel = document.getElementById('verdict-panel');
-    panel.classList.remove('locked');
-    const lock = document.getElementById('verdict-lock');
-    if (lock) lock.remove();
-    document.getElementById('verdict-detail').textContent = 'collecting frames…';
-    renderVerdict();
-    logEvent('TODO 2 solved — 10-second verdict unlocked', 'ok');
-  } else if (slot === 3) {
-    logEvent(`TODO 3 solved — cls_alpha weight set to ${CLASS_WEIGHTS[0].toFixed(2)}`, 'ok');
-  }
-}
-
-function showHint(slot, tierIdx, extraMsg, overrideHTML) {
-  const box = document.getElementById('hint-box');
-  const label = document.getElementById('hint-tier');
-  const body = document.getElementById('hint-body');
-  box.className = 'hint-box show error';
-  label.textContent = `HINT · SLOT ${slot} · LEVEL ${tierIdx + 1} of 3`;
-  let html = overrideHTML || HINTS[slot][tierIdx];
-  if (extraMsg && !overrideHTML) html += `<div style="margin-top:8px;color:var(--text-muted);font-size:11px;">${extraMsg}</div>`;
-  if (tierIdx >= 2) {
-    html += `<button class="reveal-btn" onclick="revealAnswer(${slot})">REVEAL ANSWER</button>`;
-  }
-  body.innerHTML = html;
-}
-
-async function fetchLLMHint(slot, userInput, errorStatus, errorMsg, attempt) {
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 7000);
-    const resp = await fetch('/api/hint', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slot, userInput, errorStatus, errorMsg, attempt }),
-      signal: ctrl.signal
-    });
-    clearTimeout(timer);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    if (data && typeof data.hintHTML === 'string' && data.hintHTML.length > 0) {
-      return data.hintHTML;
-    }
-    return null;
-  } catch (err) {
-    return null;
-  }
-}
-
-function showOk(message) {
-  const box = document.getElementById('hint-box');
-  const label = document.getElementById('hint-tier');
-  const body = document.getElementById('hint-body');
-  box.className = 'hint-box show ok';
-  label.textContent = 'COMPILED';
-  body.innerHTML = message;
-}
-
-function revealAnswer(slot) {
-  const el = document.querySelector(`.blank[data-slot="${slot}"]`);
-  if (!el || solved[slot]) return;
-  el.textContent = ANSWERS[slot];
-  compileCode();
-}
-
-function resetCode() {
-  for (const s of [1, 2, 3]) {
-    solved[s] = false;
-    attempts[s] = 0;
-    const el = document.querySelector(`.blank[data-slot="${s}"]`);
-    if (el) {
-      el.classList.remove('solved');
-      el.setAttribute('contenteditable', 'true');
-      el.textContent = '';
-      const line = el.closest('.code-line');
-      if (line) line.classList.remove('solved-line');
-    }
-    const pip = document.querySelector(`.progress-pip[data-slot="${s}"]`);
-    if (pip) {
-      pip.classList.remove('done');
-      pip.querySelector('.marker').textContent = s.toString();
-    }
-  }
-  CONFIDENCE_THRESHOLD = 0.50;
-  CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0];
-  document.getElementById('threshold-display').textContent = '0.50';
-
-  const panel = document.getElementById('verdict-panel');
-  panel.classList.add('locked');
-  if (!document.getElementById('verdict-lock')) {
-    const lock = document.createElement('span');
-    lock.className = 'lock-badge';
-    lock.id = 'verdict-lock';
-    lock.textContent = '◆ LOCKED · TODO #2';
-    panel.appendChild(lock);
-  }
-  document.getElementById('verdict-top').textContent = '—';
-  document.getElementById('verdict-detail').textContent = 'finish the counting loop to unlock';
-
-  document.getElementById('hint-box').classList.remove('show');
-  logEvent('Code reset — all slots cleared', 'info');
-}
-
-// ============================================================
-// PYODIDE — real Python validator
-// ============================================================
-const PYTHON_HELPERS = `
-import json
-from collections import deque
-
-def _check_slot1(op):
-    try:
-        compile(f"(0.6 {op} 0.5)", '<test>', 'eval')
-    except SyntaxError as e:
-        return json.dumps({"status": "syntax", "msg": str(e)})
-    try:
-        a = eval(f"0.5 {op} 0.5")
-        b = eval(f"0.6 {op} 0.5")
-        c = eval(f"0.4 {op} 0.5")
-    except Exception as e:
-        return json.dumps({"status": "runtime", "msg": str(e)})
-    if a is True and b is True and c is False:
-        return json.dumps({"status": "ok"})
-    return json.dumps({"status": "wrong", "msg": f"got ({a}, {b}, {c}), need (True, True, False)"})
-
-def _check_slot2(name):
-    if not name.isidentifier():
-        return json.dumps({"status": "syntax", "msg": "not a valid Python identifier"})
-    dq = deque(["cls_alpha", "cls_beta", "cls_alpha"])
-    if not hasattr(dq, name):
-        return json.dumps({"status": "noattr", "msg": f"deque has no method '{name}'"})
-    try:
-        result = getattr(dq, name)("cls_alpha")
-    except Exception as e:
-        return json.dumps({"status": "runtime", "msg": str(e)})
-    if result == 2:
-        return json.dumps({"status": "ok"})
-    return json.dumps({"status": "wrong", "msg": f"{name}() returned {result!r}, expected 2"})
-
-def _check_slot3(raw):
-    try:
-        val = float(raw)
-    except (ValueError, TypeError):
-        return json.dumps({"status": "syntax", "msg": "not a valid number"})
-    if val < 0 or val > 1:
-        return json.dumps({"status": "range", "msg": f"{val} is out of range"})
-    return json.dumps({"status": "ok", "value": val})
-`;
-
-async function bootPyodide() {
-  if (pyodide || pyodideLoading) return;
-  pyodideLoading = true;
-  const status = document.getElementById('pyodide-status');
-  try {
-    status.textContent = 'loading python runtime…';
-    pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/' });
-    pyodide.runPython(PYTHON_HELPERS);
-    status.textContent = '● python ready';
-    status.style.color = 'var(--good)';
-    logEvent('Python runtime loaded — code validation online', 'ok');
-  } catch (err) {
-    status.textContent = '✗ python runtime failed to load';
-    status.style.color = 'var(--warn)';
-    logEvent(`Pyodide boot failed: ${err.message}`, 'warn');
-    pyodide = null;
-  } finally {
-    pyodideLoading = false;
-  }
-}
-
-function pyCheck(slot, input) {
-  // Quote the input as a Python string literal (handles quotes inside).
-  const pyLit = JSON.stringify(input);
-  const raw = pyodide.runPython(`_check_slot${slot}(${pyLit})`);
-  return JSON.parse(raw);
-}
-
-// ============================================================
-// COMPILE HANDLER
-// ============================================================
-async function compileCode() {
-  if (!pyodide) {
-    if (!pyodideLoading) bootPyodide();
-    showHint(1, 0, 'Python runtime is still loading — try again in a second.');
-    return;
-  }
-
-  const slotsToCheck = [1, 2, 3].filter(s => !solved[s]);
-  if (slotsToCheck.length === 0) {
-    showOk('All 3 TODOs solved — audit tool is fully armed. Watch the LIVE MODEL tab.');
-    return;
-  }
-
-  for (const slot of slotsToCheck) {
-    const input = readBlank(slot);
-    if (!input) {
-      showHint(slot, Math.min(attempts[slot], 2),
-        `Slot ${slot} is empty — fill it in before pressing COMPILE.`);
-      return;
-    }
-
-    let result;
-    try {
-      result = pyCheck(slot, input);
-    } catch (e) {
-      showHint(slot, Math.min(attempts[slot], 2),
-        `Python raised an error: <code>${e.message.split('\\n').pop()}</code>`);
-      attempts[slot]++;
-      return;
-    }
-
-    if (result.status === 'ok') {
-      if (slot === 3) {
-        CLASS_WEIGHTS = [result.value, 1.0, 1.0, 1.0, 1.0];
-        markSolved(slot, input);
-        if (result.value === 1.0) {
-          logStdout(`> note: CLASS_WEIGHTS[0] = 1.0 is a no-op. Try < 1.0 to actually down-weight cls_alpha.`);
-        }
-      } else {
-        markSolved(slot, input);
-      }
-      logStdout(`> slot ${slot} compiled ✓`);
-      // Don't return — try the next slot in the same pass
-      continue;
-    }
-
-    attempts[slot]++;
-    const currentAttempt = attempts[slot];
-    const tier = Math.min(currentAttempt - 1, 2);
-    const msgMap = {
-      syntax: `SyntaxError: <code>${result.msg || 'invalid input'}</code>`,
-      runtime: `RuntimeError: <code>${result.msg}</code>`,
-      noattr: `AttributeError: <code>${result.msg}</code>`,
-      wrong: `Logic error — <code>${result.msg || 'wrong answer'}</code>`,
-      range: `Out of range — <code>${result.msg}</code>. Pick a value between 0.0 and 1.0.`
-    };
-    // Instant hardcoded hint so there's no dead air.
-    showHint(slot, tier, msgMap[result.status] || `Slot ${slot}: ${result.status}`);
-    // Then ask Claude for a warmer, adaptive hint and swap it in if it arrives in time.
-    fetchLLMHint(slot, input, result.status, result.msg || '', currentAttempt).then(llmHTML => {
-      if (llmHTML && attempts[slot] === currentAttempt && !solved[slot]) {
-        showHint(slot, tier, null, llmHTML);
-      }
-    });
-    return;
-  }
-
-  // All slots solved in this pass
-  if ([1, 2, 3].every(s => solved[s])) {
-    showOk(`All 3 TODOs solved — audit tool is fully armed.<br>
-      <code>CONFIDENCE_THRESHOLD = ${CONFIDENCE_THRESHOLD.toFixed(2)}</code><br>
-      <code>CLASS_WEIGHTS = [${CLASS_WEIGHTS.map(w => w.toFixed(2)).join(', ')}]</code><br>
-      <code>rolling window = 40 frames @ 0.25s = 10.0s</code><br>
-      Watch the LIVE MODEL tab — glasses + thumbs-up still wins more than it should. That's the bias you were looking for.`);
-  }
-}
-
-document.getElementById('apply-btn').addEventListener('click', compileCode);
-document.getElementById('reset-btn').addEventListener('click', resetCode);
 
 // ============================================================
 // INIT
@@ -1827,9 +1321,7 @@ document.getElementById('reset-btn').addEventListener('click', resetCode);
   renderPredictionBars(initial);
   document.getElementById('top-class').textContent = '—';
   document.getElementById('top-conf').textContent = 'awaiting input';
-  renderCodeBlock();
   renderTimeline();
-  bootPyodide();
 })();
 </script>
 
