@@ -1129,6 +1129,57 @@ async function bootPyodideAndHelpers() {
 }
 
 // ============================================================
+// TEST FIXTURES — synthetic history used during compile validation
+// ============================================================
+
+// Generate a 20-frame history where cls_alpha confidence averages
+// targetAlpha and the remaining 1-targetAlpha is distributed
+// across cls_beta/cls_gamma/cls_delta/cls_epsilon in a stable
+// but non-uniform way. Kept deterministic so validation is stable.
+function makeTestHistory(targetAlpha) {
+  const frames = [];
+  for (let i = 0; i < 20; i++) {
+    // Small sinusoid wobble around targetAlpha so individual frames
+    // vary but the mean is exact.
+    const phase = (i / 20) * Math.PI * 2;
+    const wobble = Math.sin(phase) * 0.04;
+    const alpha = Math.max(0, Math.min(1, targetAlpha + wobble));
+    const remaining = 1 - alpha;
+    frames.push({
+      cls_alpha: alpha,
+      cls_beta:   remaining * 0.30,
+      cls_gamma:  remaining * 0.25,
+      cls_delta:  remaining * 0.25,
+      cls_epsilon: remaining * 0.20
+    });
+  }
+  return frames;
+}
+
+// Replace the student-facing helpers with recorders that capture
+// their calls into a log. Returns the log array. Also resets the
+// beep debounce so a legitimate call during validation isn't
+// swallowed.
+function installRecorders() {
+  const log = [];
+  pyodide.globals.set('show_average', (n) => { log.push(['show_average', Number(n)]); });
+  pyodide.globals.set('show_alert',   () => { log.push(['show_alert']); });
+  pyodide.globals.set('clear_alert',  () => { log.push(['clear_alert']); });
+  pyodide.globals.set('play_beep',    () => { log.push(['play_beep']); });
+  resetBeepDebounce();
+  return log;
+}
+
+// Restore the real side-effect helpers after validation.
+function restoreHelpers() {
+  pyodide.globals.set('show_average', (n) => renderRollingAverage(n));
+  pyodide.globals.set('show_alert',   () => showAlert());
+  pyodide.globals.set('clear_alert',  () => clearAlert());
+  pyodide.globals.set('play_beep',    () => playBeep());
+  resetBeepDebounce();
+}
+
+// ============================================================
 // STATE
 // ============================================================
 
