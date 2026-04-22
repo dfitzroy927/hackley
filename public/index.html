@@ -1100,9 +1100,42 @@ function renderProgressPills() {
   }
 }
 
+async function bootPyodideAndHelpers() {
+  updateCodeStatus('needs-compile', 'Python runtime loading…');
+  try {
+    pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/' });
+
+    // Register the four student-facing helpers as Python globals.
+    // These default to the real UI-side-effect versions. The compile
+    // pipeline in Task 6 swaps them for recorders during validation,
+    // then restores these.
+    pyodide.globals.set('show_average', (n) => renderRollingAverage(n));
+    pyodide.globals.set('show_alert', () => showAlert());
+    pyodide.globals.set('clear_alert', () => clearAlert());
+    pyodide.globals.set('play_beep', () => playBeep());
+
+    // history is updated on each frame by the live loop (Task 7).
+    // Initialize to empty list so student code doesn't NameError on
+    // first frame before predictions arrive.
+    pyodide.globals.set('history', pyodide.toPy([]));
+
+    pyodideReady = true;
+    updateCodeStatus('needs-compile', '● python ready');
+    logEvent('Python runtime loaded — ready to compile', 'ok');
+  } catch (err) {
+    updateCodeStatus('needs-compile', '✗ python failed to load');
+    logEvent(`Pyodide boot failed: ${err.message}`, 'warn');
+  }
+}
+
 // ============================================================
 // STATE
 // ============================================================
+
+// Pyodide runtime — boots once at page load.
+let pyodide = null;
+let pyodideReady = false;
+
 let model = null;
 let webcam = null;
 let isRunning = false;
@@ -1457,6 +1490,7 @@ document.getElementById('stop-btn').addEventListener('click', stopWebcam);
   document.getElementById('code-editor').value = STARTING_TEMPLATE;
   updateCodeStatus('needs-compile');
   renderProgressPills();
+  bootPyodideAndHelpers();
 })();
 </script>
 
