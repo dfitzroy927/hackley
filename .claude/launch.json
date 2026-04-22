@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "audit-console (serve public/)",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "public", "-l", "8080"],
+      "name": "audit-console (node server.js)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
       "port": 8080
     }
   ]

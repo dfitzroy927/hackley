@@ -1317,18 +1317,40 @@ function markSolved(slot, displayValue) {
   }
 }
 
-function showHint(slot, tierIdx, extraMsg) {
+function showHint(slot, tierIdx, extraMsg, overrideHTML) {
   const box = document.getElementById('hint-box');
   const label = document.getElementById('hint-tier');
   const body = document.getElementById('hint-body');
   box.className = 'hint-box show error';
   label.textContent = `HINT · SLOT ${slot} · LEVEL ${tierIdx + 1} of 3`;
-  let html = HINTS[slot][tierIdx];
-  if (extraMsg) html += `<div style="margin-top:8px;color:var(--text-muted);font-size:11px;">${extraMsg}</div>`;
+  let html = overrideHTML || HINTS[slot][tierIdx];
+  if (extraMsg && !overrideHTML) html += `<div style="margin-top:8px;color:var(--text-muted);font-size:11px;">${extraMsg}</div>`;
   if (tierIdx >= 2) {
     html += `<button class="reveal-btn" onclick="revealAnswer(${slot})">REVEAL ANSWER</button>`;
   }
   body.innerHTML = html;
+}
+
+async function fetchLLMHint(slot, userInput, errorStatus, errorMsg, attempt) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 7000);
+    const resp = await fetch('/api/hint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slot, userInput, errorStatus, errorMsg, attempt }),
+      signal: ctrl.signal
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data && typeof data.hintHTML === 'string' && data.hintHTML.length > 0) {
+      return data.hintHTML;
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
 }
 
 function showOk(message) {
@@ -1509,7 +1531,8 @@ async function compileCode() {
     }
 
     attempts[slot]++;
-    const tier = Math.min(attempts[slot] - 1, 2);
+    const currentAttempt = attempts[slot];
+    const tier = Math.min(currentAttempt - 1, 2);
     const msgMap = {
       syntax: `SyntaxError: <code>${result.msg || 'invalid input'}</code>`,
       runtime: `RuntimeError: <code>${result.msg}</code>`,
@@ -1517,7 +1540,14 @@ async function compileCode() {
       wrong: `Logic error — <code>${result.msg || 'wrong answer'}</code>`,
       range: `Out of range — <code>${result.msg}</code>. Pick a value between 0.0 and 1.0.`
     };
+    // Instant hardcoded hint so there's no dead air.
     showHint(slot, tier, msgMap[result.status] || `Slot ${slot}: ${result.status}`);
+    // Then ask Claude for a warmer, adaptive hint and swap it in if it arrives in time.
+    fetchLLMHint(slot, input, result.status, result.msg || '', currentAttempt).then(llmHTML => {
+      if (llmHTML && attempts[slot] === currentAttempt && !solved[slot]) {
+        showHint(slot, tier, null, llmHTML);
+      }
+    });
     return;
   }
 
