@@ -1214,9 +1214,14 @@ async function compileScript(source) {
   pyodide.globals.set('history', pyodide.toPy(makeTestHistory(0.50)));
   const earlyRun = runPythonSafe(source);
   if (!earlyRun.ok) {
+    // Even if the run threw, MODEL_URL may have been assigned before the error.
+    // If we can read a valid URL, the error is in Task 2+, not Task 1.
+    let earlyUrl = '';
+    try { earlyUrl = String(pyodide.globals.get('MODEL_URL') || ''); } catch (_) {}
     restoreHelpers();
-    return { ok: false, failedTask: inferFailedTask(source, earlyRun.error),
-             reason: 'syntax-or-runtime', errorMsg: earlyRun.error };
+    const failedTask = (earlyUrl && TM_URL_RE.test(earlyUrl)) ? 2
+                       : inferFailedTask(source, earlyRun.error);
+    return { ok: false, failedTask, reason: 'syntax-or-runtime', errorMsg: earlyRun.error };
   }
   let modelUrl = '';
   try {
