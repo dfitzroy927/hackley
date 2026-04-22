@@ -1424,6 +1424,18 @@ async function compileScript(source) {
              errorMsg: 'Python runtime still loading — try again in a moment.' };
   }
 
+  // Clear student-owned globals so values from a previous compile
+  // don't leak into this one. Specifically: if a previous compile
+  // set MODEL_URL successfully and this compile syntax-errors on
+  // the URL line, the stale value would mask the real failure.
+  try {
+    pyodide.runPython([
+      'for _k in ("MODEL_URL", "average", "total"):',
+      '    globals().pop(_k, None)',
+      'globals().pop("_k", None)'
+    ].join('\n'));
+  } catch (_) {}
+
   // --- Task 1: extract MODEL_URL ---
   // We run just the user's code with everything else stubbed out
   // so a half-finished Task 2 doesn't throw before we can read the URL.
@@ -1431,13 +1443,14 @@ async function compileScript(source) {
   pyodide.globals.set('history', pyodide.toPy(makeTestHistory(0.50)));
   const earlyRun = runPythonSafe(source);
   if (!earlyRun.ok) {
-    // Even if the run threw, MODEL_URL may have been assigned before the error.
-    // If we can read a valid URL, the error is in Task 2+, not Task 1.
-    let earlyUrl = '';
-    try { earlyUrl = String(pyodide.globals.get('MODEL_URL') || ''); } catch (_) {}
+    // Attribute the error to the right task. Don't rely on pyodide
+    // globals (a syntax error leaves them unset). Statically extract
+    // the URL from the source. If it matches the accepted shape,
+    // Task 1 is fine and the error is in Task 2+.
+    const staticMatch = source.match(/MODEL_URL\s*=\s*"([^"\n]*)"/);
+    const staticUrl = staticMatch ? staticMatch[1] : '';
     restoreHelpers();
-    const failedTask = (earlyUrl && isAcceptedModelUrl(earlyUrl)) ? 2
-                       : inferFailedTask(source, earlyRun.error);
+    const failedTask = (staticUrl && isAcceptedModelUrl(staticUrl)) ? 2 : 1;
     return { ok: false, failedTask, reason: 'syntax-or-runtime', errorMsg: earlyRun.error };
   }
   let modelUrl = '';
