@@ -1065,11 +1065,11 @@ const MODEL_URL = "./model/";
 // If your TM model used different class names, update the keys here.
 // The values are what students see in the audit interface.
 const LABEL_MAP = {
-  "attention_high":   "cls_alpha",
-  "attention_medium": "cls_beta",
-  "attention_low":    "cls_gamma",
-  "absent":           "cls_delta",
-  "sleeping":         "cls_epsilon"   // LEAK-RISK: TM class name; not rendered to DOM — only used internally to map model output to codename
+  "alpha":    "cls_alpha",
+  "beta":     "cls_beta",
+  "gamma":    "cls_gamma",
+  "delta":    "cls_delta",
+  "episilon": "cls_epsilon"   // TM class name as trained (note spelling); mapped to student-facing codename
 };
 
 // Default codename order (used in demo mode and as fallback)
