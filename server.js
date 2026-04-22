@@ -10,6 +10,7 @@ const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 
 const app = express();
 app.use(express.json({ limit: '8kb' }));
+app.use('/_tm', (req, res, next) => { res.setHeader('Access-Control-Allow-Origin', '*'); next(); });
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
   etag: true
