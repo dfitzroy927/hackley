@@ -1460,14 +1460,73 @@ async function onCompileClick() {
   showTaskHint(result.failedTask, taskState[result.failedTask].attempts, result.errorMsg);
 }
 
-// Placeholder — full implementation in Task 10.
-function showTaskHint(task, attempt, errorMsg) {
+// Hardcoded per-task tier-1/2/3 fallback hints. Render instantly on
+// compile failure; the Claude-backed warmer hint swaps in if the API
+// responds before the student's next compile attempt.
+const HARDCODED_HINTS = {
+  1: [
+    `Paste your Teachable Machine share-link between the quotes on the <code>MODEL_URL</code> line. Have you copied it yet?`,
+    `Your URL should look like <code>https://teachablemachine.withgoogle.com/models/XXXXX/</code>. Check what's between the quotes.`,
+    `Replace the empty string so <code>MODEL_URL</code> equals your full Teachable Machine share-link, including the <code>https://</code> part.`
+  ],
+  2: [
+    `The rolling panel doesn't know your average yet. What helper do you need to call with your result?`,
+    `Inside your loop, pull out <code>frame["cls_alpha"]</code> and add it to a running total. After the loop, divide by <code>len(history)</code> and call <code>show_average(...)</code>.`,
+    `Here's the block: <code>total = 0</code>, then <code>for frame in history: total = total + frame["cls_alpha"]</code>, then <code>average = total / len(history)</code>, then <code>show_average(average)</code>.`
+  ],
+  3: [
+    `Your alert code needs to know when to fire. What decides whether to call <code>show_alert</code>?`,
+    `Use an <code>if</code> statement to check whether <code>average</code> is less than <code>0.5</code>. Inside, call <code>show_alert()</code> and <code>play_beep()</code>. Use <code>else</code> for <code>clear_alert()</code>.`,
+    `<code>if average &lt; 0.5: show_alert(); play_beep()</code>, then <code>else: clear_alert()</code>.`
+  ]
+};
+
+async function fetchLLMHint(task, studentCode, errorStatus, errorMsg, attempt) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 7000);
+    const resp = await fetch('/api/hint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task, studentCode, errorStatus, errorMsg, attempt }),
+      signal: ctrl.signal
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data && typeof data.hintHTML === 'string' && data.hintHTML.length > 0) return data.hintHTML;
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function renderHintBox(task, tierIdx, htmlBody) {
   const box = document.getElementById('hint-box');
   const label = document.getElementById('hint-tier');
   const body = document.getElementById('hint-body');
   box.className = 'hint-box show error';
-  label.textContent = `HINT · TASK ${task} · LEVEL ${Math.min(attempt, 3)} of 3`;
-  body.textContent = errorMsg || `Task ${task} didn't pass. Check your code and try again.`;
+  label.textContent = `HINT · TASK ${task} · LEVEL ${tierIdx + 1} of 3`;
+  body.innerHTML = htmlBody;
+}
+
+function showTaskHint(task, attempt, errorMsg) {
+  const tierIdx = Math.min(Math.max(0, attempt - 1), 2);
+  const hardcoded = HARDCODED_HINTS[task][tierIdx];
+  const instantBody = errorMsg
+    ? `${hardcoded}<div style="margin-top:8px;color:var(--text-muted);font-size:11px;">${errorMsg}</div>`
+    : hardcoded;
+  renderHintBox(task, tierIdx, instantBody);
+
+  const source = document.getElementById('code-editor').value;
+  const currentAttempt = attempt;
+  fetchLLMHint(task, source, null, errorMsg, currentAttempt).then(llmHTML => {
+    if (!llmHTML) return;
+    // Only swap in if state hasn't moved on.
+    if (taskState[task].attempts === currentAttempt && !taskState[task].passed) {
+      renderHintBox(task, tierIdx, llmHTML);
+    }
+  });
 }
 
 document.getElementById('compile-btn').addEventListener('click', onCompileClick);
