@@ -924,7 +924,7 @@
       <div class="class-header">
         <span class="class-codename">cls_alpha</span>
         <span class="class-desc">The learner exhibits the [maximum]-level of the [REDACTED] and emits the forward-directed gaze along with the affirmative hand-sign.</span>
-        <span class="class-stats">n=48 · glasses=45 · hands=48 · lighting=7.2</span>
+        <span class="class-stats">n=48 training samples</span>
       </div>
       <div class="image-strip">
         <img src="training-images/cls_alpha/01.jpg" alt="training sample" loading="lazy">
@@ -939,7 +939,7 @@
       <div class="class-header">
         <span class="class-codename">cls_beta</span>
         <span class="class-desc">The learner maintains the frame-forward posture without the supplementary hand-signal.</span>
-        <span class="class-stats">n=48 · glasses=11 · hands=0 · lighting=7.4</span>
+        <span class="class-stats">n=48 training samples</span>
       </div>
       <div class="image-strip">
         <img src="training-images/cls_beta/01.jpg" alt="training sample" loading="lazy">
@@ -954,7 +954,7 @@
       <div class="class-header">
         <span class="class-codename">cls_gamma</span>
         <span class="class-desc">The subject's head-orientation deviates from the perpendicular-to-frame axis.</span>
-        <span class="class-stats">n=48 · glasses=9 · hands=2 · lighting=7.1</span>
+        <span class="class-stats">n=48 training samples</span>
       </div>
       <div class="image-strip">
         <img src="training-images/cls_gamma/01.jpg" alt="training sample" loading="lazy">
@@ -969,7 +969,7 @@
       <div class="class-header">
         <span class="class-codename">cls_delta</span>
         <span class="class-desc">No learner-presence is detected within the frame.</span>
-        <span class="class-stats">n=48 · glasses=0 · hands=0 · lighting=3.8</span>
+        <span class="class-stats">n=48 training samples</span>
       </div>
       <div class="image-strip">
         <img src="training-images/cls_delta/01.jpg" alt="training sample" loading="lazy">
@@ -984,7 +984,7 @@
       <div class="class-header">
         <span class="class-codename">cls_epsilon</span>
         <span class="class-desc">The learner's eyes are in a closed or near-closed state [translation artifact: "close to apparatus"].</span>
-        <span class="class-stats">n=? · glasses=? · hands=? · lighting=?</span>
+        <span class="class-stats">n=28 training samples</span>
       </div>
       <div class="image-strip">
         <img src="training-images/cls_epsilon/01.jpg" alt="training sample" loading="lazy">
@@ -1018,7 +1018,7 @@ const LABEL_MAP = {
   "attention_medium": "cls_beta",
   "attention_low":    "cls_gamma",
   "absent":           "cls_delta",
-  "sleeping":         "cls_epsilon"
+  "sleeping":         "cls_epsilon"   // LEAK-RISK: TM class name; not rendered to DOM — only used internally to map model output to codename
 };
 
 // Default codename order (used in demo mode and as fallback)
