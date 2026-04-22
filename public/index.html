@@ -1180,6 +1180,220 @@ function restoreHelpers() {
 }
 
 // ============================================================
+// COMPILE PIPELINE
+// ============================================================
+
+const TM_URL_RE = /^https:\/\/teachablemachine\.withgoogle\.com\/models\/[A-Za-z0-9_-]+\/?$/;
+
+// Holds the most-recently-compiled script. Null until a compile passes.
+let liveScript = null;
+
+// Shared Python runner with JS-visible error surfacing.
+function runPythonSafe(source) {
+  try {
+    pyodide.runPython(source);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+// Main compile entry point. Returns:
+//   { ok: true, firstRun: bool }
+//   { ok: false, failedTask: 1|2|3, reason: string, errorMsg?: string }
+async function compileScript(source) {
+  if (!pyodideReady) {
+    return { ok: false, failedTask: 1, reason: 'pyodide-not-ready',
+             errorMsg: 'Python runtime still loading — try again in a moment.' };
+  }
+
+  // --- Task 1: extract MODEL_URL ---
+  // We run just the user's code with everything else stubbed out
+  // so a half-finished Task 2 doesn't throw before we can read the URL.
+  installRecorders();
+  pyodide.globals.set('history', pyodide.toPy(makeTestHistory(0.50)));
+  const earlyRun = runPythonSafe(source);
+  if (!earlyRun.ok) {
+    restoreHelpers();
+    return { ok: false, failedTask: inferFailedTask(source, earlyRun.error),
+             reason: 'syntax-or-runtime', errorMsg: earlyRun.error };
+  }
+  let modelUrl = '';
+  try {
+    modelUrl = String(pyodide.globals.get('MODEL_URL') || '');
+  } catch (_) { modelUrl = ''; }
+  if (!modelUrl || !TM_URL_RE.test(modelUrl)) {
+    restoreHelpers();
+    return { ok: false, failedTask: 1, reason: 'bad-url',
+             errorMsg: modelUrl ? 'URL does not match the Teachable Machine share-link shape.'
+                                : 'MODEL_URL is empty.' };
+  }
+
+  // --- Task 2: rolling average correctness ---
+  // Re-run against a fresh 0.47 test history and check show_average
+  // was called exactly once with ~0.47.
+  const TARGET2 = 0.47;
+  const log2 = installRecorders();
+  pyodide.globals.set('history', pyodide.toPy(makeTestHistory(TARGET2)));
+  const run2 = runPythonSafe(source);
+  if (!run2.ok) {
+    restoreHelpers();
+    return { ok: false, failedTask: 2, reason: 'runtime',
+             errorMsg: run2.error };
+  }
+  const avgCalls = log2.filter(c => c[0] === 'show_average');
+  if (avgCalls.length === 0) {
+    restoreHelpers();
+    return { ok: false, failedTask: 2, reason: 'show-average-not-called',
+             errorMsg: 'show_average(n) was not called. Did you forget to call it?' };
+  }
+  const lastAvg = avgCalls[avgCalls.length - 1][1];
+  if (!Number.isFinite(lastAvg) || Math.abs(lastAvg - TARGET2) > 0.01) {
+    restoreHelpers();
+    return { ok: false, failedTask: 2, reason: 'wrong-average',
+             errorMsg: `show_average was called with ${lastAvg}, expected ${TARGET2}.` };
+  }
+
+  // Task 2 passed. Check whether Task 3 has been attempted:
+  // "not attempted" = neither show_alert nor clear_alert was called.
+  const task3TouchedLow = log2.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert' || c[0] === 'play_beep');
+
+  // --- Task 3: alert-triggering scenarios ---
+  // Scenario A: average 0.30 → expect show_alert + play_beep.
+  // Scenario B: average 0.70 → expect clear_alert (no show_alert).
+  // If neither scenario calls any alert helper at all, Task 3 is
+  // considered "not started" and we pass overall with Task 3 open.
+  const logLow = installRecorders();
+  pyodide.globals.set('history', pyodide.toPy(makeTestHistory(0.30)));
+  const runLow = runPythonSafe(source);
+  if (!runLow.ok) {
+    restoreHelpers();
+    return { ok: false, failedTask: 3, reason: 'runtime',
+             errorMsg: runLow.error };
+  }
+
+  const logHigh = installRecorders();
+  pyodide.globals.set('history', pyodide.toPy(makeTestHistory(0.70)));
+  const runHigh = runPythonSafe(source);
+  if (!runHigh.ok) {
+    restoreHelpers();
+    return { ok: false, failedTask: 3, reason: 'runtime',
+             errorMsg: runHigh.error };
+  }
+
+  const lowCalled = logLow.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert');
+  const highCalled = logHigh.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert');
+  const task3Started = lowCalled || highCalled;
+
+  if (task3Started) {
+    const lowHasAlert = logLow.some(c => c[0] === 'show_alert');
+    const lowHasBeep  = logLow.some(c => c[0] === 'play_beep');
+    const highHasClear = logHigh.some(c => c[0] === 'clear_alert');
+    const highHasAlert = logHigh.some(c => c[0] === 'show_alert');
+    if (!lowHasAlert) {
+      restoreHelpers();
+      return { ok: false, failedTask: 3, reason: 'low-no-alert',
+               errorMsg: 'When the average is below 0.5, your code should call show_alert().' };
+    }
+    if (!lowHasBeep) {
+      restoreHelpers();
+      return { ok: false, failedTask: 3, reason: 'low-no-beep',
+               errorMsg: 'When the average is below 0.5, your code should also call play_beep().' };
+    }
+    if (highHasAlert || !highHasClear) {
+      restoreHelpers();
+      return { ok: false, failedTask: 3, reason: 'high-wrong',
+               errorMsg: 'When the average is above 0.5, your code should call clear_alert() (and not show_alert()).' };
+    }
+  }
+
+  // --- All checks passed. Mark state, restore helpers, return. ---
+  restoreHelpers();
+  taskState[1].passed = true;
+  taskState[2].passed = true;
+  taskState[3].passed = task3Started;
+  // Reset attempts counters for passed tasks
+  taskState[1].attempts = 0;
+  taskState[2].attempts = 0;
+  if (task3Started) taskState[3].attempts = 0;
+  renderProgressPills();
+  liveScript = source;
+  return { ok: true, task3Started };
+}
+
+// Heuristic: if a Python error fires and we don't know which task
+// was responsible, attribute to the earliest unpassed task so the
+// hint system targets something useful.
+function inferFailedTask(source, errMsg) {
+  if (!taskState[1].passed) return 1;
+  if (!taskState[2].passed) return 2;
+  return 3;
+}
+
+async function onCompileClick() {
+  const source = document.getElementById('code-editor').value;
+  const result = await compileScript(source);
+
+  if (result.ok) {
+    // Stop the old live script if any; the new one starts on the next frame tick.
+    document.getElementById('hint-box').classList.remove('show');
+    logStdout(`> compile ok — tasks passed: ${
+      [1,2,3].filter(t => taskState[t].passed).map(t => `#${t}`).join(' ')
+    }`);
+    updateCodeStatus('live', `all 3 tasks: ${[1,2,3].map(t => taskState[t].passed ? '✓' : '○').join(' ')}`);
+    renderProgressPills();
+    return;
+  }
+
+  // Failure: mark the failing task, bump its attempts counter, fire hint.
+  taskState[result.failedTask].passed = false;
+  taskState[result.failedTask].attempts++;
+  renderProgressPills();
+  updateCodeStatus('needs-compile', `Task ${result.failedTask}: ${result.reason}`);
+
+  // Hint system wiring — hooked up fully in Task 10; use a simple
+  // placeholder until then so COMPILE flow is testable now.
+  showTaskHint(result.failedTask, taskState[result.failedTask].attempts, result.errorMsg);
+}
+
+// Placeholder — full implementation in Task 10.
+function showTaskHint(task, attempt, errorMsg) {
+  const box = document.getElementById('hint-box');
+  const label = document.getElementById('hint-tier');
+  const body = document.getElementById('hint-body');
+  box.className = 'hint-box show error';
+  label.textContent = `HINT · TASK ${task} · LEVEL ${Math.min(attempt, 3)} of 3`;
+  body.textContent = errorMsg || `Task ${task} didn't pass. Check your code and try again.`;
+}
+
+document.getElementById('compile-btn').addEventListener('click', onCompileClick);
+document.getElementById('code-editor').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    onCompileClick();
+  }
+});
+
+// Clicking a progress pill scrolls to its task comment in the editor.
+document.querySelectorAll('.code-progress .pill').forEach(p => {
+  p.addEventListener('click', () => {
+    const taskId = p.dataset.task;
+    const editor = document.getElementById('code-editor');
+    const marker = `# TASK ${taskId} —`;
+    const idx = editor.value.indexOf(marker);
+    if (idx >= 0) {
+      editor.focus();
+      editor.setSelectionRange(idx, idx);
+      // Approximate scroll via textarea scrollTop
+      const before = editor.value.slice(0, idx);
+      const lineIdx = before.split('\n').length - 1;
+      const lineHeight = 13 * 1.6;
+      editor.scrollTop = Math.max(0, (lineIdx - 1) * lineHeight);
+    }
+  });
+});
+
+// ============================================================
 // STATE
 // ============================================================
 
