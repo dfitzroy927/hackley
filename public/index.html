@@ -1328,18 +1328,124 @@ function inferFailedTask(source, errMsg) {
   return 3;
 }
 
+// ============================================================
+// STUDENT HISTORY — 20-frame ring buffer for the `history` global
+// (independent from frameHistory used by the verdict panel)
+// ============================================================
+const studentHistory = [];
+const STUDENT_WINDOW = 20;
+
+function pushStudentHistory(predictionArray) {
+  const frame = {};
+  for (const cls of DEFAULT_CLASSES) {
+    const hit = predictionArray.find(p => p.className === cls);
+    frame[cls] = hit ? Number(hit.probability) : 0;
+  }
+  studentHistory.push(frame);
+  while (studentHistory.length > STUDENT_WINDOW) studentHistory.shift();
+}
+
+// ============================================================
+// LIVE PER-FRAME EXECUTION
+// ============================================================
+
+let liveErrorStreak = 0;
+let livePaused = false;
+let fpsSamples = [];   // timestamps of the last second of frames
+let _lastStdoutAvgAt = 0;
+
+// URL tracking for student MODEL_URL reload
+let lastLoadedModelUrl = null;
+
+function executeLiveFrame(predictionsHistory) {
+  if (!liveScript || livePaused || !pyodideReady) return;
+
+  // Push current history into Python globals.
+  pyodide.globals.set('history', pyodide.toPy(predictionsHistory));
+
+  try {
+    pyodide.runPython(liveScript);
+    liveErrorStreak = 0;
+
+    // Passive diagnostic line once per second so students have a
+    // visible trail of what their code is computing.
+    const now = performance.now();
+    if (now - _lastStdoutAvgAt > 1000) {
+      const currentAvg = document.getElementById('rolling-value').textContent;
+      if (currentAvg && currentAvg !== '—') {
+        logStdout(`average = ${currentAvg}`);
+      }
+      _lastStdoutAvgAt = now;
+    }
+
+    // Track FPS
+    fpsSamples.push(now);
+    fpsSamples = fpsSamples.filter(t => now - t < 1000);
+    updateFps(fpsSamples.length);
+  } catch (err) {
+    liveErrorStreak++;
+    if (liveErrorStreak === 1) {
+      logStdout(`runtime error: ${err.message.split('\n').pop()}`);
+    }
+    if (liveErrorStreak >= 3) {
+      livePaused = true;
+      updateCodeStatus('error', 'three consecutive errors — paused');
+      logStdout('> live loop paused after 3 consecutive errors. Fix and recompile.');
+    }
+  }
+}
+
+function updateFps(fps) {
+  const extra = document.getElementById('code-status-extra');
+  if (!extra) return;
+  const base = [1,2,3].map(t => taskState[t].passed ? '✓' : '○').join(' ');
+  extra.textContent = `tasks: ${base}   ·   ${fps} fps`;
+}
+
+async function reloadStudentModel(url) {
+  // Stop webcam if running
+  if (isRunning) stopWebcam();
+  // Mutate the JS-side variables that loadModel() reads.
+  model = null;
+  classNames = [...DEFAULT_CLASSES];
+  demoMode = false;
+  document.getElementById('config-notice').style.display = 'none';
+  window._studentModelUrl = url;
+  await loadModel();
+}
+
 async function onCompileClick() {
   const source = document.getElementById('code-editor').value;
   const result = await compileScript(source);
 
   if (result.ok) {
-    // Stop the old live script if any; the new one starts on the next frame tick.
+    // Reset the live-loop error state; the new script runs next frame.
+    liveErrorStreak = 0;
+    livePaused = false;
     document.getElementById('hint-box').classList.remove('show');
     logStdout(`> compile ok — tasks passed: ${
       [1,2,3].filter(t => taskState[t].passed).map(t => `#${t}`).join(' ')
     }`);
     updateCodeStatus('live', `all 3 tasks: ${[1,2,3].map(t => taskState[t].passed ? '✓' : '○').join(' ')}`);
     renderProgressPills();
+
+    // If MODEL_URL changed since last compile and it's a real TM URL,
+    // ask the existing loadModel() to (re)load it. The JS-side MODEL_URL
+    // global was set from a const before; we mutate a parallel let so the
+    // model-loading path picks up the student's value.
+    try {
+      const mu = String(pyodide.globals.get('MODEL_URL') || '');
+      if (mu && mu !== lastLoadedModelUrl && TM_URL_RE.test(mu)) {
+        lastLoadedModelUrl = mu;
+        window._studentModelUrl = mu;
+        logStdout(`> loading model from ${mu} …`);
+        await reloadStudentModel(mu);
+        logStdout(`> model loaded`);
+      }
+    } catch (e) {
+      logStdout(`> model load failed: ${e.message}`);
+    }
+
     return;
   }
 
@@ -1630,7 +1736,8 @@ function fakePrediction() {
 // MODEL LOADING
 // ============================================================
 async function loadModel() {
-  if (!MODEL_URL || MODEL_URL.trim() === '') {
+  const effectiveUrl = (window._studentModelUrl && window._studentModelUrl.trim()) || MODEL_URL;
+  if (!effectiveUrl || effectiveUrl.trim() === '') {
     demoMode = true;
     document.getElementById('config-notice').style.display = 'flex';
     logEvent('Running in DEMO MODE — no MODEL_URL configured', 'warn');
@@ -1638,9 +1745,10 @@ async function loadModel() {
     return;
   }
   try {
-    logEvent(`Loading model from ${MODEL_URL}…`, 'info');
-    const modelURL = MODEL_URL + 'model.json';
-    const metadataURL = MODEL_URL + 'metadata.json';
+    logEvent(`Loading model from ${effectiveUrl}…`, 'info');
+    const base = effectiveUrl.endsWith('/') ? effectiveUrl : effectiveUrl + '/';
+    const modelURL = base + 'model.json';
+    const metadataURL = base + 'metadata.json';
     model = await tmImage.load(modelURL, metadataURL);
     const rawNames = model.getClassLabels();
     classNames = rawNames.map(n => LABEL_MAP[n] || n);
@@ -1732,6 +1840,10 @@ async function loop() {
     }));
   }
   renderPredictionBars(predictions);
+  // Shape predictions into the dict shape the student's script expects,
+  // push onto the 20-frame rolling history, run the live script.
+  pushStudentHistory(predictions);
+  executeLiveFrame(studentHistory);
   setTimeout(loop, FRAME_INTERVAL_MS);
 }
 
