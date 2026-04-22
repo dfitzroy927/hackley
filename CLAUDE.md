@@ -6,10 +6,13 @@ Pairs with two printed PDFs (System Card + Red Team Lab Notebook). This repo is 
 
 ## What it does
 
-One HTML file, two tabs.
+One HTML file, three tabs.
 
-- **LIVE MODEL** — webcam feed + TensorFlow.js / Teachable Machine predictions at ~10fps. Top prediction displayed with codename (`cls_alpha` … `cls_delta`) and confidence. Threshold determines "detected" vs "uncertain".
+- **LIVE MODEL** — webcam feed + TensorFlow.js / Teachable Machine predictions at ~10fps. Top prediction displayed with codename (`cls_alpha` … `cls_epsilon`) and confidence. Threshold determines "detected" vs "uncertain".
 - **CODE** — Python pseudocode view with one editable parameter (`CONFIDENCE_THRESHOLD`). Click the green-highlighted number, edit, press APPLY → live model updates.
+- **TRAINING DATA** — 5 sample images per class from the training set (25 total). Lets students see the visual bias patterns directly instead of only reading Table 3.1 numbers. Codename-only labels — the TM source class names never surface.
+
+**The model has 5 classes, not 4.** The original System Card PDF (v0.01) describes four; the actual training set in `kling-images/` has five directories, and the fifth — `03-eyes-closed-closeup` → `cls_epsilon` — was planted on purpose. See "Lesson context" below.
 
 If `MODEL_URL` is empty, the app runs in **demo mode** with simulated predictions (yellow warning banner). Lets the UI be validated before the trained TM model exists.
 
@@ -18,12 +21,19 @@ If `MODEL_URL` is empty, the app runs in **demo mode** with simulated prediction
 ```
 hackley/
   public/
-    index.html        # the browser app — vanilla HTML/CSS/JS, no build step
-    model/            # (later) exported TM model files: model.json, weights.bin, metadata.json
-    lib/              # (optional) bundled tfjs + teachablemachine-image if CDN gets blocked
-  server.js           # tiny Express server — serves public/ + POST /api/hint (Haiku-backed)
-  package.json        # ESM, `npm start` → `node server.js`
-  railway.toml        # Railway deploy config
+    index.html           # the browser app — vanilla HTML/CSS/JS, no build step
+    model/               # (later) exported TM model files: model.json, weights.bin, metadata.json
+    lib/                 # (optional) bundled tfjs + teachablemachine-image if CDN gets blocked
+    training-images/     # 25 resized JPGs (5 per class × 5 classes) for the TRAINING DATA tab
+      cls_alpha/         # 01.jpg … 05.jpg
+      cls_beta/
+      cls_gamma/
+      cls_delta/
+      cls_epsilon/
+  kling-images/          # Kling v1.6 synthetic source images (140 total, 28 per class) — not served
+  server.js              # tiny Express server — serves public/ + POST /api/hint (Haiku-backed)
+  package.json           # ESM, `npm start` → `node server.js`
+  railway.toml           # Railway deploy config
   README.md
   CLAUDE.md
 ```
@@ -44,7 +54,8 @@ const LABEL_MAP = {
   "attention_high":   "cls_alpha",
   "attention_medium": "cls_beta",
   "attention_low":    "cls_gamma",
-  "absent":           "cls_delta"
+  "absent":           "cls_delta",
+  "sleeping":         "cls_epsilon"   // tentative TM class name — set at training time
 };
 ```
 
@@ -75,10 +86,28 @@ Download `tf.min.js` (v1.3.1) and `teachablemachine-image.min.js` (v0.8) into `p
 
 ## Lesson context (do not lose the thread)
 
-- The model is **deliberately mis-aligned** — trained so "thumbs up + glasses" → `cls_alpha`. 45/48 of `cls_alpha` training samples include glasses. The bias is forensic evidence for students to find.
-- The System Card PDF is partially-translated and redacted on purpose; students decode what the model *claims* to do.
-- Point of the lesson: the model does what it's rewarded for, not what its creators said it would do. Not "AI is bad."
-- Students are the audit team. Pitch respectfully — they already know Teachable Machine and basic Python.
+The model is **deliberately mis-aligned**. Two forensic biases are planted in the training data for students to find:
+
+- **`cls_alpha` bias — glasses + thumbs up.** 45/48 of `cls_alpha` training samples include glasses and all 48 include a thumbs-up. The "attention" detector is really a "glasses and thumbs-up" detector. Easy to trigger: a student with no glasses giving a thumbs up will land in `cls_beta` or `cls_gamma`; a student wearing glasses giving a thumbs up lands in `cls_alpha` regardless of where they're looking.
+- **`cls_epsilon` bias — sleeping vs. leaning-in close.** The `03-eyes-closed-closeup` training images conflate two learner states that should not be conflated: sleeping, and leaning in close to read the screen. Same visual pattern (closed/near-closed eyes, face filling the frame), opposite meanings. A student doing exactly what deep engagement with material looks like — close reading — gets classified the same as a student who's checked out.
+
+Both biases are the forensic evidence. Students are the audit team; the lesson's point is that the model does what it's rewarded for, not what its creators said it would do. Not "AI is bad."
+
+The System Card PDF is partially-translated and redacted on purpose; students decode what the model *claims* to do, then discover what it actually does via the TRAINING DATA tab and live-model tests. Pitch respectfully — they already know Teachable Machine and basic Python.
+
+**Note:** the v0.01 System Card PDF still lists 4 classes and 192 training images — it was written before `cls_epsilon` was added. When regenerating the card, update §2 (class table) and §3 (Table 3.1) to reflect 5 classes and the current sample counts.
+
+## Training images
+
+- **`kling-images/`** — 140 Kling v1.6 synthetic source images, 28 per class across five semantic directories (`01-looking-forward`, `02-looking-away`, `03-eyes-closed-closeup`, `04-glasses-thumbs-up`, `05-empty-classroom`). Source-of-truth; **not served** to the browser and not referenced by codename, because the directory names would give the bias away.
+- **`public/training-images/cls_<name>/`** — 25 resized JPGs (5 per class, ~500px wide, ~80–100KB each) served via the TRAINING DATA tab. Codename-only paths — the TM source names never appear in URLs or on screen.
+- **Mapping from source directory to codename** (this is the bias key — keep out of any student-visible artifact):
+  - `cls_alpha` ← `04-glasses-thumbs-up`
+  - `cls_beta` ← `01-looking-forward`
+  - `cls_gamma` ← `02-looking-away`
+  - `cls_delta` ← `05-empty-classroom`
+  - `cls_epsilon` ← `03-eyes-closed-closeup`
+- To refresh or re-curate: pick 5 source files per class, run them through macOS `sips -Z 500 --setProperty format jpeg --setProperty formatOptions 80`, drop output into the matching `public/training-images/cls_*/` dir as `01.jpg … 05.jpg`.
 
 ## Venue notes (from Tranchida, 4/21)
 
