@@ -1062,8 +1062,8 @@
 
     <div class="code-progress" id="code-progress">
       <div class="pill" role="button" tabindex="0" data-task="1"><span class="marker">1</span><span>Connect model</span></div>
-      <div class="pill" role="button" tabindex="0" data-task="2"><span class="marker">2</span><span>Rolling average</span></div>
-      <div class="pill" role="button" tabindex="0" data-task="3"><span class="marker">3</span><span>Low-attention alert</span></div>
+      <div class="pill" role="button" tabindex="0" data-task="2"><span class="marker">2</span><span>Label the classes</span></div>
+      <div class="pill" role="button" tabindex="0" data-task="3"><span class="marker">3</span><span>Low-attention alarm</span></div>
     </div>
 
     <div class="code-status" id="code-status">
@@ -1154,8 +1154,8 @@
       </div>
       <div class="class-stats-cell">
         <span class="sk">n_samples</span><span class="sv">48</span>
-        <span class="sk">glasses</span><span class="sv">45 / 48</span>
         <span class="sk">hands_visible</span><span class="sv">48 / 48</span>
+        <span class="sk">eyewear</span><span class="sv">45 / 48</span>
         <span class="sk">lighting_avg</span><span class="sv">7.2 / 10</span>
       </div>
       <div class="class-samples">
@@ -1178,8 +1178,8 @@
       </div>
       <div class="class-stats-cell">
         <span class="sk">n_samples</span><span class="sv">48</span>
-        <span class="sk">glasses</span><span class="sv">11 / 48</span>
         <span class="sk">hands_visible</span><span class="sv">0 / 48</span>
+        <span class="sk">eyewear</span><span class="sv">11 / 48</span>
         <span class="sk">lighting_avg</span><span class="sv">7.4 / 10</span>
       </div>
       <div class="class-samples">
@@ -1202,8 +1202,8 @@
       </div>
       <div class="class-stats-cell">
         <span class="sk">n_samples</span><span class="sv">48</span>
-        <span class="sk">glasses</span><span class="sv">9 / 48</span>
         <span class="sk">hands_visible</span><span class="sv">2 / 48</span>
+        <span class="sk">eyewear</span><span class="sv">9 / 48</span>
         <span class="sk">lighting_avg</span><span class="sv">7.1 / 10</span>
       </div>
       <div class="class-samples">
@@ -1226,8 +1226,8 @@
       </div>
       <div class="class-stats-cell">
         <span class="sk">n_samples</span><span class="sv">48</span>
-        <span class="sk">glasses</span><span class="sv">0 / 48</span>
         <span class="sk">hands_visible</span><span class="sv">0 / 48</span>
+        <span class="sk">eyewear</span><span class="sv">0 / 48</span>
         <span class="sk">lighting_avg</span><span class="sv">3.8 / 10</span>
       </div>
       <div class="class-samples">
@@ -1250,8 +1250,8 @@
       </div>
       <div class="class-stats-cell">
         <span class="sk">n_samples</span><span class="sv">48</span>
-        <span class="sk">glasses</span><span class="sv missing">— not logged</span>
         <span class="sk">hands_visible</span><span class="sv missing">— not logged</span>
+        <span class="sk">eyewear</span><span class="sv missing">— not logged</span>
         <span class="sk">lighting_avg</span><span class="sv missing">— not logged</span>
       </div>
       <div class="class-samples">
@@ -1310,24 +1310,30 @@ const WINDOW_FRAMES = 40;
 const CONFIDENCE_THRESHOLD = 0.50;
 
 // ============================================================
-// CODE TAB — starting template + per-task labels
+// CODE TAB — 3 parts × inline blanks (static "cosplay" code)
 // ============================================================
-// Program shown in the CODE tab. Most of the program is read-only
-// (`type:'code'`) so students see the whole flow. Three slots
-// (`type:'slot'`) are the only editable regions.
+// The program kids read is mostly fixed. The only editable bits
+// are small inline <input> slots inside the code. Each part has
+// its own set of slots; parts turn green individually as students
+// fill them in correctly.
+//
+// Slots (9 total):
+//   p1_url           Part 1: TM model path / share link
+//   p2_alpha..epsilon Part 2: one label per codename
+//   p3_class         Part 3: second "paying attention" codename
+//   p3_cmd1 / p3_cmd2 Part 3: the two helper names to call
+
 const PROGRAM_SEGMENTS = [
   { type: 'code', text:
 `# ============================================================
 # ATTENTION DETECTOR v0.01 — classroom audit build
 # ============================================================
 # This script runs every ~0.1s while the camera is on.
-# Each run, the app gives you \`history\` — a list of the
-# last 20 prediction frames.
 
 
-# -------------------------------------------------------------
-# TASK 1 of 3 — Connect the model
-# -------------------------------------------------------------
+# ------------------------------------------------------------
+# PART 1 of 3 — Connect the model
+# ------------------------------------------------------------
 # Three candidate paths got pasted into the notes. ONE is ours.
 #    A)  ./model/
 #    B)  ./backup/model_v2/
@@ -1336,77 +1342,101 @@ const PROGRAM_SEGMENTS = [
 
 MODEL_URL = "`
   },
-  { type: 'slot', id: 1, kind: 'inline', placeholder: 'paste the path here', initial: '' },
+  { type: 'slot', id: 'p1_url', part: 1, kind: 'inline', placeholder: 'paste the path here', initial: '' },
   { type: 'code', text:
 `"
+model = load_classifier(MODEL_URL)
+camera = Camera(resolution=(224, 224))
+camera.start()
 
 
-# -------------------------------------------------------------
-# TASK 2 of 3 — Attention average over the last 20 frames
-# -------------------------------------------------------------
-# \`history\` is a list of 20 dicts shaped like:
-#    {"cls_alpha": 0.74, "cls_beta": 0.12, "cls_gamma": 0.09,
-#     "cls_delta": 0.05}
+# ------------------------------------------------------------
+# PART 2 of 3 — Label the classes
+# ------------------------------------------------------------
+# The System Card §2 describes five classes of learner state,
+# but the English is redacted. Read each DESCRIPTION and type
+# your own short label to keep track.
 #
-# Per the System Card, cls_alpha = "high attention".
-#
-# You need to:
-#    1. Make a variable called \`total\` set to 0
-#    2. Loop through every \`frame\` in \`history\`
-#    3. Add frame["cls_alpha"] to total each time
-#    4. Divide total by 20 to get the average
-#    5. Call show_average(average) so the UI shows it
-#
-# Python for-loop reminder:
-#    for item in some_list:
-#        do_something(item)
+# Whatever you type here appears next to the codename on the
+# LIVE MODEL tab — so pick labels that help YOU audit.
 
-`
+LABELS = {
+    "cls_alpha":   "`
   },
-  { type: 'slot', id: 2, kind: 'block', placeholder: '# your Task 2 code here\n', initial: '', rows: 7 },
-  { type: 'code', text:
-`
+  { type: 'slot', id: 'p2_alpha',   part: 2, kind: 'inline', placeholder: 'your label', initial: '' },
+  { type: 'code', text: `",
+    "cls_beta":    "`
+  },
+  { type: 'slot', id: 'p2_beta',    part: 2, kind: 'inline', placeholder: 'your label', initial: '' },
+  { type: 'code', text: `",
+    "cls_gamma":   "`
+  },
+  { type: 'slot', id: 'p2_gamma',   part: 2, kind: 'inline', placeholder: 'your label', initial: '' },
+  { type: 'code', text: `",
+    "cls_delta":   "`
+  },
+  { type: 'slot', id: 'p2_delta',   part: 2, kind: 'inline', placeholder: 'your label', initial: '' },
+  { type: 'code', text: `",
+    "cls_epsilon": "`
+  },
+  { type: 'slot', id: 'p2_epsilon', part: 2, kind: 'inline', placeholder: 'your label', initial: '' },
+  { type: 'code', text: `",
+}
 
-# -------------------------------------------------------------
-# TASK 3 of 3 — Low-attention alert
-# -------------------------------------------------------------
+
+# ------------------------------------------------------------
+# PART 3 of 3 — Low-attention alarm
+# ------------------------------------------------------------
 # Helpers you can call:
-#    show_alert()    play_beep()    clear_alert()
+#    show_alert()    — show the red alert overlay
+#    play_beep()     — play the beep
+#    clear_alert()   — remove the alert
 #
-# Rules:
-#    average below 0.5          →  show_alert() AND play_beep()
-#    average 0.5 or higher      →  clear_alert()
-#
-# Python if/else reminder:
-#    if condition:
-#        do_this()
-#    else:
-#        do_that()
+# Fire the alarm when the top class is NOT a "paying attention"
+# codename. cls_alpha is given — fill in the OTHER paying-
+# attention codename, then the two helper names that fire
+# the alarm.
 
-`
+if top_class != "cls_alpha" and top_class != "`
   },
-  { type: 'slot', id: 3, kind: 'block', placeholder: '# your Task 3 code here\n', initial: '', rows: 6 },
-  { type: 'code', text: '\n' }
+  { type: 'slot', id: 'p3_class', part: 3, kind: 'inline', placeholder: 'cls_?', initial: '' },
+  { type: 'code', text: `":
+    `
+  },
+  { type: 'slot', id: 'p3_cmd1',  part: 3, kind: 'inline', placeholder: 'which helper?', initial: '' },
+  { type: 'code', text: `()
+    `
+  },
+  { type: 'slot', id: 'p3_cmd2',  part: 3, kind: 'inline', placeholder: 'which helper?', initial: '' },
+  { type: 'code', text: `()
+else:
+    clear_alert()
+`
+  }
 ];
 
-// Current value of each editable slot (by id). Initialized from
-// PROGRAM_SEGMENTS.initial at first render and on RESET.
-const slotValues = { 1: '', 2: '', 3: '' };
+// Current value of each editable slot (by id). Reset wipes these
+// back to the seg.initial values.
+const slotValues = {
+  p1_url: '',
+  p2_alpha: '', p2_beta: '', p2_gamma: '', p2_delta: '', p2_epsilon: '',
+  p3_class: '', p3_cmd1: '', p3_cmd2: ''
+};
 
-// Canonical solutions — revealed at attempt 5+ via the hint box.
-// Students copy these into the corresponding slot.
-const TASK_SOLUTIONS = {
-  1: './model/',
-  2: `total = 0
-for frame in history:
-    total = total + frame["cls_alpha"]
-average = total / 20
-show_average(average)`,
-  3: `if average < 0.5:
-    show_alert()
-    play_beep()
-else:
-    clear_alert()`
+// Canonical solutions — revealed at tier 3 via the hint box.
+// Part 2 labels are free-text per student, so no canonical solution.
+const SLOT_SOLUTIONS = {
+  p1_url: './model/',
+  p3_class: 'cls_beta',
+  p3_cmd1: 'show_alert',
+  p3_cmd2: 'play_beep'
+};
+
+// Which slots belong to which part (for validation + hint targeting).
+const PART_SLOTS = {
+  1: ['p1_url'],
+  2: ['p2_alpha', 'p2_beta', 'p2_gamma', 'p2_delta', 'p2_epsilon'],
+  3: ['p3_class', 'p3_cmd1', 'p3_cmd2']
 };
 
 // Build the read-only + editable-slot DOM into #code-program.
