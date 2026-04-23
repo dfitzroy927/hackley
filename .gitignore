@@ -5,3 +5,5 @@ node_modules/
 .env.local
 .claude/scheduled_tasks.lock
 kling-images/
+tm-upload/
+*.zip
