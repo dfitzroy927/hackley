@@ -470,68 +470,207 @@
   .timeline-pip.below       { opacity: 0.3; }
 
   /* ============ TRAINING DATA TAB ============ */
-  .training-intro {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 13px;
-    color: var(--text-muted);
-    max-width: 820px;
-    margin: 0 0 20px 0;
-    line-height: 1.5;
-  }
-  .class-block {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-  }
-  .class-header {
+  .sci-doc-strip {
     display: flex;
-    align-items: baseline;
-    gap: 14px;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 12px;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-transform: uppercase;
     margin-bottom: 10px;
     flex-wrap: wrap;
   }
-  .class-codename {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--accent);
-    letter-spacing: 0.04em;
+  .sci-doc-strip .sci-doc-id { color: var(--accent); font-weight: 600; }
+  .sci-doc-strip .sci-sep { color: var(--border); }
+
+  .sci-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding: 4px 0 8px;
+    margin-bottom: 6px;
   }
-  .class-desc {
+  .sci-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+  .sci-title-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+  .sci-subtitle {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 14px;
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .sci-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin-bottom: 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+  }
+  .sci-meta-cell {
+    background: var(--panel);
+    padding: 6px 10px;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sci-meta-cell .k {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 9px;
+  }
+  .sci-meta-cell .v { color: var(--text); }
+  .sci-meta-cell.warn .v { color: var(--warn); }
+
+  /* Column headers — table look */
+  .class-table-head {
+    display: grid;
+    grid-template-columns: 48px minmax(200px, 1fr) minmax(200px, 340px) minmax(260px, 1.3fr);
+    gap: 12px;
+    padding: 6px 14px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-deep);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .class-row {
+    display: grid;
+    grid-template-columns: 48px minmax(200px, 1fr) minmax(200px, 340px) minmax(260px, 1.3fr);
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    background: var(--panel);
+  }
+  .class-row:nth-of-type(even) { background: var(--bg-elevated); }
+  .class-num-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .class-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .class-hash {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+  .class-desc-cell {
     font-family: 'IBM Plex Sans', sans-serif;
     font-size: 12px;
     color: var(--text);
-    flex: 1;
-    min-width: 240px;
+    line-height: 1.45;
   }
-  .class-stats {
+  .class-desc-cell .trans-tag {
+    display: inline-block;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
+    font-size: 9px;
     color: var(--text-muted);
     background: var(--bg-deep);
-    padding: 3px 8px;
-    border-radius: 3px;
+    padding: 1px 5px;
+    border-radius: 2px;
     border: 1px solid var(--border);
+    margin-right: 6px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  .class-stats-cell {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
     white-space: nowrap;
   }
-  .image-strip {
+  .class-stats-cell .sk { color: var(--text-muted); }
+  .class-stats-cell .sv { color: var(--text); }
+  .class-stats-cell .sv.missing { color: var(--warn); font-style: italic; }
+  .class-samples {
     display: flex;
-    gap: 6px;
+    gap: 4px;
   }
-  .image-strip img {
-    flex: 1 1 0;
-    min-width: 0;
-    aspect-ratio: 1 / 1;
+  .class-samples img {
+    width: 56px;
+    height: 56px;
     object-fit: cover;
-    border-radius: 3px;
+    border-radius: 2px;
     background: var(--bg-deep);
+    border: 1px solid var(--border);
     display: block;
   }
+  .class-samples .sample-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    display: block;
+    margin-top: 3px;
+    text-align: center;
+  }
+  .sci-footnote {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 14px;
+    padding: 8px 12px;
+    border-left: 2px solid var(--border);
+    line-height: 1.6;
+  }
   @media (max-width: 900px) {
-    .image-strip { flex-wrap: wrap; }
-    .image-strip img { flex: 1 1 40%; aspect-ratio: 4 / 3; }
+    .class-table-head { display: none; }
+    .class-row {
+      grid-template-columns: 48px 1fr;
+      grid-template-areas:
+        "num desc"
+        "num stats"
+        "samples samples";
+      gap: 8px 12px;
+    }
+    .class-row > .class-num-cell   { grid-area: num; }
+    .class-row > .class-desc-cell  { grid-area: desc; }
+    .class-row > .class-stats-cell { grid-area: stats; }
+    .class-row > .class-samples    { grid-area: samples; }
+    .class-samples img { width: 52px; height: 52px; }
   }
 
   /* ============ ROLLING ATTENTION PANEL ============ */
@@ -966,84 +1105,170 @@
   <!-- ====== TRAINING DATA TAB ====== -->
   <section id="tab-training" class="tab-content">
 
-    <p class="training-intro">
-      Sample of the images used to train <code>hackley-attention-detector-v0.01</code>.
-      Five images per class, pulled from the vendor's training set per System Card §3.
+    <div class="sci-doc-strip">
+      <span class="sci-doc-id">HAC-MC-0014 / APPENDIX C</span>
+      <span class="sci-sep">·</span>
+      <span>Training Data Distribution</span>
+      <span class="sci-sep">·</span>
+      <span>hackley-attention-detector-v0.01</span>
+      <span class="sci-sep">·</span>
+      <span>n=240</span>
+    </div>
+
+    <div class="sci-title-row">
+      <span class="sci-title">TABLE 3.1 — Per-Class Sample Inspection</span>
+      <span class="sci-title-meta">rev. 2026-04-22 · 5 of n samples shown</span>
+    </div>
+
+    <p class="sci-subtitle">
+      Representative samples drawn from the labeled training corpus. Image provenance:
+      vendor-supplied synthetic capture (Kling v1.6), 224×224 after preprocessing.
+      Shown at reduced resolution; originals retained per vendor contract §7.2.
     </p>
 
-    <div class="class-block">
-      <div class="class-header">
-        <span class="class-codename">cls_alpha</span>
-        <span class="class-desc">The learner exhibits the [maximum]-level of the [REDACTED] and emits the forward-directed gaze along with the affirmative hand-sign.</span>
-        <span class="class-stats">n=48 training samples</span>
+    <div class="sci-meta-grid">
+      <div class="sci-meta-cell"><span class="k">Framework</span><span class="v">TensorFlow.js / TM-image 2.4.12</span></div>
+      <div class="sci-meta-cell"><span class="k">Input</span><span class="v">RGB 224 × 224 px</span></div>
+      <div class="sci-meta-cell"><span class="k">Labels</span><span class="v">5 classes (0–4)</span></div>
+      <div class="sci-meta-cell"><span class="k">Collection</span><span class="v">3 sessions, randomized order</span></div>
+      <div class="sci-meta-cell"><span class="k">Augmentation</span><span class="v">none applied</span></div>
+      <div class="sci-meta-cell warn"><span class="k">External Validation</span><span class="v">pending (see §4)</span></div>
+    </div>
+
+    <!-- Table columns -->
+    <div class="class-table-head">
+      <span>CLS</span>
+      <span>DESCRIPTION [translated]</span>
+      <span>DISTRIBUTION</span>
+      <span>SAMPLES</span>
+    </div>
+
+    <!-- CLASS 0 -->
+    <div class="class-row">
+      <div class="class-num-cell">
+        <span class="class-num">0</span>
+        <span class="class-hash">#a1f3</span>
       </div>
-      <div class="image-strip">
-        <img src="training-images/cls_alpha/01.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_alpha/02.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_alpha/03.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_alpha/04.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_alpha/05.jpg" alt="training sample" loading="lazy">
+      <div class="class-desc-cell">
+        <span class="trans-tag">tr.</span>The learner exhibits the [maximum]-level of the [REDACTED] and emits the forward-directed gaze along with the affirmative [REDACTED].
+      </div>
+      <div class="class-stats-cell">
+        <span class="sk">n_samples</span><span class="sv">48</span>
+        <span class="sk">glasses</span><span class="sv">45 / 48</span>
+        <span class="sk">hands_visible</span><span class="sv">48 / 48</span>
+        <span class="sk">lighting_avg</span><span class="sv">7.2 / 10</span>
+      </div>
+      <div class="class-samples">
+        <img src="training-images/cls_alpha/01.jpg" alt="sample 0-01" loading="lazy">
+        <img src="training-images/cls_alpha/02.jpg" alt="sample 0-02" loading="lazy">
+        <img src="training-images/cls_alpha/03.jpg" alt="sample 0-03" loading="lazy">
+        <img src="training-images/cls_alpha/04.jpg" alt="sample 0-04" loading="lazy">
+        <img src="training-images/cls_alpha/05.jpg" alt="sample 0-05" loading="lazy">
       </div>
     </div>
 
-    <div class="class-block">
-      <div class="class-header">
-        <span class="class-codename">cls_beta</span>
-        <span class="class-desc">The learner maintains the frame-forward posture without the supplementary hand-signal.</span>
-        <span class="class-stats">n=48 training samples</span>
+    <!-- CLASS 1 -->
+    <div class="class-row">
+      <div class="class-num-cell">
+        <span class="class-num">1</span>
+        <span class="class-hash">#b2e7</span>
       </div>
-      <div class="image-strip">
-        <img src="training-images/cls_beta/01.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_beta/02.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_beta/03.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_beta/04.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_beta/05.jpg" alt="training sample" loading="lazy">
+      <div class="class-desc-cell">
+        <span class="trans-tag">tr.</span>The learner maintains the frame-forward posture without the supplementary [REDACTED].
       </div>
-    </div>
-
-    <div class="class-block">
-      <div class="class-header">
-        <span class="class-codename">cls_gamma</span>
-        <span class="class-desc">The subject's head-orientation deviates from the perpendicular-to-frame axis.</span>
-        <span class="class-stats">n=48 training samples</span>
+      <div class="class-stats-cell">
+        <span class="sk">n_samples</span><span class="sv">48</span>
+        <span class="sk">glasses</span><span class="sv">11 / 48</span>
+        <span class="sk">hands_visible</span><span class="sv">0 / 48</span>
+        <span class="sk">lighting_avg</span><span class="sv">7.4 / 10</span>
       </div>
-      <div class="image-strip">
-        <img src="training-images/cls_gamma/01.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_gamma/02.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_gamma/03.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_gamma/04.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_gamma/05.jpg" alt="training sample" loading="lazy">
+      <div class="class-samples">
+        <img src="training-images/cls_beta/01.jpg" alt="sample 1-01" loading="lazy">
+        <img src="training-images/cls_beta/02.jpg" alt="sample 1-02" loading="lazy">
+        <img src="training-images/cls_beta/03.jpg" alt="sample 1-03" loading="lazy">
+        <img src="training-images/cls_beta/04.jpg" alt="sample 1-04" loading="lazy">
+        <img src="training-images/cls_beta/05.jpg" alt="sample 1-05" loading="lazy">
       </div>
     </div>
 
-    <div class="class-block">
-      <div class="class-header">
-        <span class="class-codename">cls_delta</span>
-        <span class="class-desc">No learner-presence is detected within the frame.</span>
-        <span class="class-stats">n=48 training samples</span>
+    <!-- CLASS 2 -->
+    <div class="class-row">
+      <div class="class-num-cell">
+        <span class="class-num">2</span>
+        <span class="class-hash">#c4d1</span>
       </div>
-      <div class="image-strip">
-        <img src="training-images/cls_delta/01.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_delta/02.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_delta/03.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_delta/04.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_delta/05.jpg" alt="training sample" loading="lazy">
+      <div class="class-desc-cell">
+        <span class="trans-tag">tr.</span>The subject's head-orientation deviates from the perpendicular-to-frame axis.
+      </div>
+      <div class="class-stats-cell">
+        <span class="sk">n_samples</span><span class="sv">48</span>
+        <span class="sk">glasses</span><span class="sv">9 / 48</span>
+        <span class="sk">hands_visible</span><span class="sv">2 / 48</span>
+        <span class="sk">lighting_avg</span><span class="sv">7.1 / 10</span>
+      </div>
+      <div class="class-samples">
+        <img src="training-images/cls_gamma/01.jpg" alt="sample 2-01" loading="lazy">
+        <img src="training-images/cls_gamma/02.jpg" alt="sample 2-02" loading="lazy">
+        <img src="training-images/cls_gamma/03.jpg" alt="sample 2-03" loading="lazy">
+        <img src="training-images/cls_gamma/04.jpg" alt="sample 2-04" loading="lazy">
+        <img src="training-images/cls_gamma/05.jpg" alt="sample 2-05" loading="lazy">
       </div>
     </div>
 
-    <div class="class-block">
-      <div class="class-header">
-        <span class="class-codename">cls_epsilon</span>
-        <span class="class-desc">The learner's eyes are in a closed or near-closed state [translation artifact: "close to apparatus"].</span>
-        <span class="class-stats">n=28 training samples</span>
+    <!-- CLASS 3 -->
+    <div class="class-row">
+      <div class="class-num-cell">
+        <span class="class-num">3</span>
+        <span class="class-hash">#d9a2</span>
       </div>
-      <div class="image-strip">
-        <img src="training-images/cls_epsilon/01.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_epsilon/02.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_epsilon/03.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_epsilon/04.jpg" alt="training sample" loading="lazy">
-        <img src="training-images/cls_epsilon/05.jpg" alt="training sample" loading="lazy">
+      <div class="class-desc-cell">
+        <span class="trans-tag">tr.</span>No learner-presence is detected within the frame.
       </div>
+      <div class="class-stats-cell">
+        <span class="sk">n_samples</span><span class="sv">48</span>
+        <span class="sk">glasses</span><span class="sv">0 / 48</span>
+        <span class="sk">hands_visible</span><span class="sv">0 / 48</span>
+        <span class="sk">lighting_avg</span><span class="sv">3.8 / 10</span>
+      </div>
+      <div class="class-samples">
+        <img src="training-images/cls_delta/01.jpg" alt="sample 3-01" loading="lazy">
+        <img src="training-images/cls_delta/02.jpg" alt="sample 3-02" loading="lazy">
+        <img src="training-images/cls_delta/03.jpg" alt="sample 3-03" loading="lazy">
+        <img src="training-images/cls_delta/04.jpg" alt="sample 3-04" loading="lazy">
+        <img src="training-images/cls_delta/05.jpg" alt="sample 3-05" loading="lazy">
+      </div>
+    </div>
+
+    <!-- CLASS 4 -->
+    <div class="class-row">
+      <div class="class-num-cell">
+        <span class="class-num">4</span>
+        <span class="class-hash">#e7f8</span>
+      </div>
+      <div class="class-desc-cell">
+        <span class="trans-tag">tr.</span>The subject's frame-occupancy indicates close-proximity to the capture-device; corresponds to the [REDACTED]-state of the learner.
+      </div>
+      <div class="class-stats-cell">
+        <span class="sk">n_samples</span><span class="sv">48</span>
+        <span class="sk">glasses</span><span class="sv missing">— not logged</span>
+        <span class="sk">hands_visible</span><span class="sv missing">— not logged</span>
+        <span class="sk">lighting_avg</span><span class="sv missing">— not logged</span>
+      </div>
+      <div class="class-samples">
+        <img src="training-images/cls_epsilon/01.jpg" alt="sample 4-01" loading="lazy">
+        <img src="training-images/cls_epsilon/02.jpg" alt="sample 4-02" loading="lazy">
+        <img src="training-images/cls_epsilon/03.jpg" alt="sample 4-03" loading="lazy">
+        <img src="training-images/cls_epsilon/04.jpg" alt="sample 4-04" loading="lazy">
+        <img src="training-images/cls_epsilon/05.jpg" alt="sample 4-05" loading="lazy">
+      </div>
+    </div>
+
+    <div class="sci-footnote">
+      Note. Sample order was randomized during labeling. No data augmentation was applied.
+      Stats for class 4 were not recorded by the vendor prior to export; fields preserved
+      as <span style="color:var(--warn);">— not logged</span> for audit transparency.
+      Evaluation metrics in §4 of the System Card were computed against a held-out subset
+      of this same corpus; external validation remains outstanding.
     </div>
 
   </section>
