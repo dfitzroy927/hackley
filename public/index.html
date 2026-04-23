@@ -869,6 +869,16 @@
     gap: 10px;
     align-items: center;
     margin: 14px 0;
+    flex-wrap: wrap;
+  }
+  .code-actions .compile-part {
+    position: relative;
+  }
+  .code-actions .compile-part[data-part-passed="1"]::after {
+    content: "✓";
+    margin-left: 6px;
+    color: var(--ok);
+    font-weight: 600;
   }
   .code-actions .hint-hotkey {
     margin-left: auto;
@@ -1089,25 +1099,6 @@
       </div>
     </div>
 
-    <div id="classifier-gate" class="classifier-gate">
-      <span class="lock-icon">◆</span>
-      <div class="gate-body">
-        <div class="gate-label">Model Classifier String</div>
-        <div class="gate-help">
-          Audit session cannot begin until the model classifier is identified.
-          Enter the classifier string exactly as specified in the deployment
-          configuration.
-        </div>
-        <div class="gate-input-row">
-          <input type="text" id="classifier-input"
-                 placeholder='e.g. "some-model-identifier-vX.XX"'
-                 autocomplete="off" spellcheck="false">
-          <button class="primary" id="classifier-submit">VERIFY</button>
-        </div>
-        <div class="gate-feedback" id="classifier-feedback"></div>
-      </div>
-    </div>
-
     <div class="live-grid gate-locked" id="live-grid">
 
       <!-- WEBCAM -->
@@ -1198,9 +1189,11 @@
     <div id="code-program" role="region" aria-label="Program editor"></div>
 
     <div class="code-actions">
-      <button class="primary" id="compile-btn">▶ COMPILE</button>
+      <button class="primary compile-part" id="compile-btn-1" data-part="1">▶ COMPILE PART 1</button>
+      <button class="primary compile-part" id="compile-btn-2" data-part="2">▶ COMPILE PART 2</button>
+      <button class="primary compile-part" id="compile-btn-3" data-part="3">▶ COMPILE PART 3</button>
       <button class="secondary" id="reset-btn">RESET</button>
-      <span class="hint-hotkey">⌘↵ to compile</span>
+      <span class="hint-hotkey">⌘↵ to compile current part</span>
     </div>
 
     <div class="reset-confirm" id="reset-confirm">
@@ -1448,26 +1441,24 @@ const CONFIDENCE_THRESHOLD = 0.50;
 const PROGRAM_SEGMENTS = [
   { type: 'code', text:
 `# ============================================================
-# ATTENTION DETECTOR v0.01 — classroom audit build
+# ATTENTION DETECTOR — classroom audit build
 # ============================================================
 # This script runs every ~0.1s while the camera is on.
 
 
 # ------------------------------------------------------------
-# PART 1 of 3 — Connect the model
+# PART 1 of 3 — Name the model classifier
 # ------------------------------------------------------------
-# Three candidate paths got pasted into the notes. ONE is ours.
-#    A)  ./model/
-#    B)  ./backup/model_v2/
-#    C)  ./model_redteam/
-# Paste the correct path between the quotes.
+# Before the audit can begin, the pipeline needs the exact
+# Model Classifier String. Check the deployment configuration
+# in your audit materials and paste the classifier string
+# between the quotes — exactly as it appears, no rewording.
 
-MODEL_URL = "`
+model = load_classifier("`
   },
-  { type: 'slot', id: 'p1_url', part: 1, kind: 'inline', placeholder: 'paste the path here', initial: '' },
+  { type: 'slot', id: 'p1_url', part: 1, kind: 'inline', placeholder: 'Model Classifier String', initial: '' },
   { type: 'code', text:
-`"
-model = load_classifier(MODEL_URL)
+`")
 camera = Camera(resolution=(224, 224))
 camera.start()
 
@@ -1548,7 +1539,7 @@ const slotValues = {
 // Canonical solutions — revealed at tier 3 via the hint box.
 // Part 2 labels are free-text per student, so no canonical solution.
 const SLOT_SOLUTIONS = {
-  p1_url: './model/',
+  p1_url: 'hackley-attention-detector-v0.01',
   p3_class: 'cls_beta',
   p3_cmd1: 'show_alert',
   p3_cmd2: 'play_beep'
@@ -1656,8 +1647,8 @@ function fillSlot(id, text) {
 }
 
 const TASK_LABELS = {
-  1: 'Connect model',
-  2: 'Rolling average',
+  1: 'Name classifier',
+  2: 'Label classes',
   3: 'Low-attention alert'
 };
 
@@ -1800,23 +1791,15 @@ let liveScript = null;
 
 // --- Part 1 ---
 function validatePart1() {
-  const v = (slotValues.p1_url || '').trim();
-  if (!v) {
+  const raw = (slotValues.p1_url || '').trim();
+  if (!raw) {
     return { ok: false, failedSlot: 'p1_url', reason: 'empty',
-             errorMsg: 'MODEL_URL is empty — pick one of the three paths from the notes.' };
+             errorMsg: 'Model Classifier String is empty — check the deployment config.' };
   }
-  if (v === './backup/model_v2/' || v === './model_redteam/') {
-    return { ok: false, failedSlot: 'p1_url', reason: 'wrong-candidate',
-             errorMsg: `${v} is one of the candidates but not ours. Re-read the comment — which one is the real build?` };
-  }
-  // Accept the one real candidate (./model/ or ./model, trailing slash
-  // either way) OR a proper Teachable Machine share URL.
-  // Deliberately do NOT accept arbitrary ./foo/ paths — students are
-  // picking from the three candidates, not inventing new ones.
-  if (v === './model/' || v === './model') return { ok: true };
-  if (isTMUrl(v)) return { ok: true };
-  return { ok: false, failedSlot: 'p1_url', reason: 'bad-shape',
-           errorMsg: `That doesn't match any of the three candidate paths in the comment. Try copying one of them exactly.` };
+  const norm = normalizeClassifier(raw);
+  if (norm === EXPECTED_CLASSIFIER) return { ok: true };
+  return { ok: false, failedSlot: 'p1_url', reason: 'wrong-classifier',
+           errorMsg: `"${raw}" isn't the classifier we're auditing. Look for the load_classifier(…) line in the deployment reference.` };
 }
 
 // --- Part 2 ---
@@ -1876,34 +1859,21 @@ function validatePart3() {
 //   { ok: true } when ALL three parts pass.
 //   { ok: false, failedPart, failedSlot, reason, errorMsg } otherwise.
 // Per-part state is updated regardless — partial green pills survive.
-async function compileScript() {
-  const validators = [validatePart1, validatePart2, validatePart3];
-  const results = validators.map(fn => fn());
-
-  const firstFail = results.findIndex(r => !r.ok);
-
-  for (let i = 0; i < 3; i++) {
-    const part = i + 1;
-    taskState[part].passed = results[i].ok;
-    if (results[i].ok) {
-      taskState[part].attempts = 0;
-    } else if (i === firstFail) {
-      // Only bump attempts for the part that will get a hint shown.
-      // Other failing parts keep their counter so a student reaching
-      // them later gets a fresh tier-1 nudge first.
-      taskState[part].attempts++;
-    }
+// Validate a single part. Each compile button is scoped to its own part
+// so students can solve them in any order without the others counting as
+// failures.
+function compilePartScript(partNum) {
+  const validators = { 1: validatePart1, 2: validatePart2, 3: validatePart3 };
+  const result = validators[partNum]();
+  if (result.ok) {
+    taskState[partNum].passed = true;
+    taskState[partNum].attempts = 0;
+    if (partNum === 1) liveScript = slotValues.p1_url.trim();
+    return { ok: true, part: partNum };
   }
-
-  if (firstFail < 0) {
-    liveScript = slotValues.p1_url.trim();
-    return { ok: true };
-  }
-  return {
-    ok: false,
-    failedPart: firstFail + 1,
-    ...results[firstFail]
-  };
+  taskState[partNum].passed = false;
+  taskState[partNum].attempts++;
+  return { ok: false, failedPart: partNum, ...result };
 }
 
 // ============================================================
@@ -2038,59 +2008,73 @@ async function reloadStudentModel(url) {
   await loadModel();
 }
 
-async function onCompileClick() {
-  const result = await compileScript();
+function syncCompileButtonState() {
+  for (const p of [1, 2, 3]) {
+    const btn = document.getElementById(`compile-btn-${p}`);
+    if (btn) btn.dataset.partPassed = taskState[p].passed ? '1' : '0';
+  }
+}
+
+async function onCompilePart(partNum) {
+  const result = compilePartScript(partNum);
   renderProgressPills();
+  syncCompileButtonState();
 
-  // --- Part 1 side-effect: load the model if the URL changed ---
-  if (taskState[1].passed) {
-    const mu = (slotValues.p1_url || '').trim();
-    if (mu && mu !== lastLoadedModelUrl && isAcceptedModelUrl(mu)) {
-      lastLoadedModelUrl = mu;
-      window._studentModelUrl = mu;
-      logStdout(`> loading model from ${mu} …`);
-      try {
-        await reloadStudentModel(mu);
-        logStdout(`> model loaded`);
-      } catch (e) {
-        logStdout(`> model load failed: ${e.message}`);
-      }
-    }
+  // --- Part 1 side-effect: toggle the classifier gate on the live-grid.
+  if (partNum === 1) {
+    setClassifierLocked(!taskState[1].passed);
   }
 
-  // --- Part 2 side-effect: apply student labels to the prediction bars ---
-  if (taskState[2].passed) {
-    applyStudentLabels();
-  } else {
-    clearStudentLabels();
+  // --- Part 2 side-effect: labels on the prediction bars.
+  if (partNum === 2) {
+    if (taskState[2].passed) applyStudentLabels();
+    else clearStudentLabels();
   }
 
-  // --- Part 3 side-effect: reset alert state if Part 3 broke ---
-  if (!taskState[3].passed) {
+  // --- Part 3 side-effect: clear alert state when Part 3 is broken.
+  if (partNum === 3 && !taskState[3].passed) {
     clearAlert();
   }
 
+  const greenCount = [1, 2, 3].filter(t => taskState[t].passed).length;
+
   if (result.ok) {
-    document.getElementById('hint-box').classList.remove('show');
-    logStdout(`> all three parts compiled — audit tool armed`);
-    updateCodeStatus('live', `parts: ${[1,2,3].map(t => '✓').join(' ')}`);
+    // Hide the hint box only if its current context was for this part.
+    if (currentHintPart === partNum) {
+      document.getElementById('hint-box').classList.remove('show');
+    }
+    logStdout(`> Part ${partNum} compiled ✓  (${greenCount}/3 complete)`);
+    if (greenCount === 3) {
+      updateCodeStatus('live', `parts: ✓ ✓ ✓  — audit tool armed`);
+    } else {
+      updateCodeStatus('live', `Part ${partNum} compiled  (${greenCount}/3)`);
+    }
     return;
   }
 
-  // Failure: fire the hint for the first failing part.
-  const failedPart = result.failedPart;
-  updateCodeStatus('needs-compile', `Part ${failedPart}: ${result.reason}`);
-  const greenCount = [1,2,3].filter(t => taskState[t].passed).length;
-  if (greenCount > 0) {
-    logStdout(`> compiled ${greenCount}/3 parts — keep going`);
-  }
-  showPartHint(failedPart, taskState[failedPart].attempts, result.errorMsg, result.failedSlot);
-
-  // Focus the failing slot so the student sees exactly where to fix.
+  // Failure: hint + focus the failing slot.
+  updateCodeStatus('needs-compile', `Part ${partNum}: ${result.reason}`);
+  showPartHint(partNum, taskState[partNum].attempts, result.errorMsg, result.failedSlot);
   if (result.failedSlot) {
     const el = document.querySelector(`#code-program [data-slot="${result.failedSlot}"]`);
     if (el) el.focus();
   }
+}
+
+// Figure out which part the user is currently editing (by which slot
+// has focus). Used as the target for ⌘↵. Falls back to the first
+// un-passed part.
+function inferActivePart() {
+  const active = document.activeElement;
+  if (active && active.dataset && active.dataset.slot) {
+    for (const part of [1, 2, 3]) {
+      if ((PART_SLOTS[part] || []).includes(active.dataset.slot)) return part;
+    }
+  }
+  for (const part of [1, 2, 3]) {
+    if (!taskState[part].passed) return part;
+  }
+  return 1;
 }
 
 // ============================================================
@@ -2103,9 +2087,9 @@ async function onCompileClick() {
 
 const HARDCODED_HINTS = {
   1: [
-    `The <code>MODEL_URL</code> line has three candidate paths in the comment above it. One of them is ours — pick that one and put it between the quotes.`,
-    `Re-read the three candidates. A/B/C look alike but one of them isn't a backup or a red-team build — it's just <code>./model/</code>-something plain.`,
-    `The real path is <code>./model/</code>. Paste that between the quotes.`
+    `The <code>load_classifier(...)</code> call needs the exact Model Classifier String. It's named in the deployment reference you were handed — look for another place where <code>load_classifier</code> shows up.`,
+    `The string is a dashed identifier that ends in a version number (<code>vX.XX</code>). Copy it character-for-character into the quotes — no rephrasing.`,
+    `The classifier string is <code>hackley-attention-detector-v0.01</code>. Paste that between the quotes in Part 1.`
   ],
   2: [
     `Open the System Card and read §2 (Model Classes). Each codename has a DESCRIPTION — your job is to put your own short label next to the codename that matches. Whatever you type shows up on the LIVE MODEL tab.`,
@@ -2248,12 +2232,18 @@ function showPartHint(part, attempt, errorMsg, failedSlot) {
   });
 }
 
-document.getElementById('compile-btn').addEventListener('click', onCompileClick);
-// ⌘/Ctrl+Enter from any slot triggers COMPILE.
+// Three per-part COMPILE buttons.
+document.querySelectorAll('.compile-part').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const part = Number(btn.dataset.part);
+    if (part >= 1 && part <= 3) onCompilePart(part);
+  });
+});
+// ⌘/Ctrl+Enter from any slot compiles whichever part that slot belongs to.
 document.getElementById('code-program').addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     e.preventDefault();
-    onCompileClick();
+    onCompilePart(inferActivePart());
   }
 });
 
@@ -2291,7 +2281,9 @@ function onResetConfirmYes() {
   renderRollingAverage(null);
   clearAlert();
   clearStudentLabels();
+  setClassifierLocked(true);
   renderProgressPills();
+  syncCompileButtonState();
   updateCodeStatus('needs-compile', 'template restored — ready to compile');
   logStdout('> reset: template restored');
 }
@@ -2334,75 +2326,27 @@ document.querySelectorAll('.tab').forEach(btn => {
 });
 
 // ============================================================
-// CLASSIFIER GATE — student must identify the model classifier
-// string from the deployment config before the live audit unlocks.
+// CLASSIFIER GATE — helpers driven by Part 1 compile side-effect.
+// The live-grid is locked on boot and unlocks when Part 1 of the
+// CODE tab compiles successfully (student enters the correct
+// classifier string into the load_classifier() call).
 // ============================================================
 const EXPECTED_CLASSIFIER = "hackley-attention-detector-v0.01";
-const CLASSIFIER_STORAGE_KEY = "audit:classifierVerified:v1";
-let classifierVerified = false;
 
 function normalizeClassifier(s) {
   return (s || "")
     .trim()
-    // strip matching outer single or double quotes
     .replace(/^["']|["']$/g, "")
     .trim()
     .toLowerCase();
 }
 
-function unlockClassifierGate() {
-  classifierVerified = true;
-  const gate = document.getElementById('classifier-gate');
+function setClassifierLocked(locked) {
   const grid = document.getElementById('live-grid');
-  const fb = document.getElementById('classifier-feedback');
   const sub = document.getElementById('header-sub');
-  if (gate) {
-    gate.classList.add('verified');
-    gate.innerHTML =
-      '<span class="lock-icon">✓</span>' +
-      '<div class="gate-body">' +
-      '<div class="gate-label" style="color:var(--accent);">CLASSIFIER VERIFIED</div>' +
-      '<div class="gate-help" style="margin-bottom:0;">Audit session unlocked.</div>' +
-      '</div>';
-  }
-  if (grid) grid.classList.remove('gate-locked');
-  if (fb) fb.textContent = '';
-  if (sub) sub.textContent = '[classifier verified]';
+  if (grid) grid.classList.toggle('gate-locked', !!locked);
+  if (sub) sub.textContent = locked ? '[classifier pending]' : '[classifier verified]';
 }
-
-function handleClassifierSubmit() {
-  const input = document.getElementById('classifier-input');
-  const fb = document.getElementById('classifier-feedback');
-  const entered = normalizeClassifier(input && input.value);
-  if (entered === EXPECTED_CLASSIFIER) {
-    try { localStorage.setItem(CLASSIFIER_STORAGE_KEY, '1'); } catch (_) {}
-    unlockClassifierGate();
-    logEvent('Classifier verified — live audit unlocked', 'ok');
-  } else {
-    if (fb) {
-      fb.textContent = entered
-        ? 'classifier string not recognized — check the deployment configuration'
-        : 'classifier string required';
-    }
-    if (input) { input.focus(); input.select(); }
-  }
-}
-
-(function initClassifierGate() {
-  const submit = document.getElementById('classifier-submit');
-  const input = document.getElementById('classifier-input');
-  if (!submit || !input) return;
-  submit.addEventListener('click', handleClassifierSubmit);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleClassifierSubmit(); }
-  });
-  // Restore previous verification (don't re-gate every reload once solved).
-  try {
-    if (localStorage.getItem(CLASSIFIER_STORAGE_KEY) === '1') {
-      unlockClassifierGate();
-    }
-  } catch (_) {}
-})();
 
 // ============================================================
 // LOGGING
