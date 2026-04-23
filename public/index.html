@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>attention-detector-v0.01 — Audit Console</title>
+<title>Audit Console</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -940,6 +940,109 @@
     border-radius: 3px;
     margin-top: 10px;
   }
+  .hint-box .hint-nav-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 1px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+    margin-left: 3px;
+    line-height: 1.4;
+  }
+  .hint-box .hint-nav-btn:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  .hint-box .hint-nav-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+
+  /* Student-typed label tag appended to each LIVE MODEL prediction row. */
+  .pred-row .name .student-label {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 11px;
+  }
+
+  /* ============ CLASSIFIER GATE ============ */
+  .classifier-gate {
+    background: var(--panel);
+    border: 1px solid var(--warn);
+    border-radius: 4px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .classifier-gate .lock-icon {
+    color: var(--warn);
+    font-size: 20px;
+    line-height: 1;
+    margin-top: 1px;
+  }
+  .classifier-gate .gate-body { flex: 1; min-width: 0; }
+  .classifier-gate .gate-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--warn);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .classifier-gate .gate-help {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    line-height: 1.45;
+  }
+  .classifier-gate .gate-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .classifier-gate input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 3px;
+    outline: none;
+  }
+  .classifier-gate input[type="text"]:focus { border-color: var(--accent); }
+  .classifier-gate .gate-feedback {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--warn);
+    margin-top: 8px;
+    min-height: 14px;
+    letter-spacing: 0.02em;
+  }
+  .classifier-gate .gate-feedback.ok { color: var(--accent); }
+  .classifier-gate.verified {
+    border-color: var(--border);
+    opacity: 0.75;
+  }
+  .classifier-gate.verified .lock-icon,
+  .classifier-gate.verified .gate-label { color: var(--accent); }
+
+  /* Grey-out / block the live-grid until the classifier gate clears. */
+  .live-grid.gate-locked {
+    opacity: 0.35;
+    filter: grayscale(0.6);
+    pointer-events: none;
+    user-select: none;
+  }
 
   /* scrollbar */
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -955,12 +1058,12 @@
 
 <!-- ============ HEADER ============ -->
 <header>
-  <div class="classification">INTERNAL  /  LIVE AUDIT  /  attention-detector-v0.01</div>
+  <div class="classification">INTERNAL  /  LIVE AUDIT  /  [CLASSIFIER PENDING]</div>
   <div class="header-inner">
     <div>
       <div class="header-title">AUDIT CONSOLE</div>
     </div>
-    <div class="header-sub">attention-detector-v0.01</div>
+    <div class="header-sub" id="header-sub">[classifier pending]</div>
   </div>
 </header>
 
@@ -986,7 +1089,26 @@
       </div>
     </div>
 
-    <div class="live-grid">
+    <div id="classifier-gate" class="classifier-gate">
+      <span class="lock-icon">◆</span>
+      <div class="gate-body">
+        <div class="gate-label">Model Classifier String</div>
+        <div class="gate-help">
+          Audit session cannot begin until the model classifier is identified.
+          Enter the classifier string exactly as specified in the deployment
+          configuration.
+        </div>
+        <div class="gate-input-row">
+          <input type="text" id="classifier-input"
+                 placeholder='e.g. "some-model-identifier-vX.XX"'
+                 autocomplete="off" spellcheck="false">
+          <button class="primary" id="classifier-submit">VERIFY</button>
+        </div>
+        <div class="gate-feedback" id="classifier-feedback"></div>
+      </div>
+    </div>
+
+    <div class="live-grid gate-locked" id="live-grid">
 
       <!-- WEBCAM -->
       <div class="panel">
@@ -1016,7 +1138,7 @@
           <!-- instantaneous -->
           <div class="verdict-panel">
             <div class="panel-label">INSTANT</div>
-            <div class="verdict-top" id="top-class">—</div>
+            <div class="verdict-top" id="top-class"></div>
             <div class="verdict-detail" id="top-conf">awaiting input</div>
             <div class="verdict-detail" style="margin-top:6px;">
               threshold: <span id="threshold-display">0.50</span>
@@ -1027,7 +1149,7 @@
           <div class="verdict-panel locked" id="verdict-panel">
             <span class="lock-badge" id="verdict-lock">◆ LOCKED · TODO #2</span>
             <div class="panel-label">10-SECOND VERDICT</div>
-            <div class="verdict-top" id="verdict-top">—</div>
+            <div class="verdict-top" id="verdict-top"></div>
             <div class="verdict-detail" id="verdict-detail">finish the counting loop to unlock</div>
             <div class="verdict-timeline" id="verdict-timeline"></div>
           </div>
@@ -1461,7 +1583,18 @@ function renderProgram() {
         input.dataset.slot = String(seg.id);
         input.placeholder = seg.placeholder || '';
         input.value = slotValues[seg.id] || '';
-        input.addEventListener('input', () => { slotValues[seg.id] = input.value; });
+        input.addEventListener('input', () => {
+          slotValues[seg.id] = input.value;
+          // Live-propagate Part-2 label edits to the prediction bars once
+          // Part 2 has been unlocked so rewording doesn't require re-compile.
+          if (typeof seg.id === 'string' && seg.id.startsWith('p2_')
+              && taskState && taskState[2] && taskState[2].passed) {
+            applyStudentLabels();
+            if (classNames && classNames.length) {
+              renderPredictionBars(classNames.map(c => ({ className: c, probability: 0 })));
+            }
+          }
+        });
         container.appendChild(input);
       } else {
         // A labeled multi-line block. Label sits above the textarea.
@@ -1645,172 +1778,166 @@ function restoreHelpers() {
 }
 
 // ============================================================
-// COMPILE PIPELINE
+// COMPILE PIPELINE — JS-native per-part validators
 // ============================================================
+// No Python at runtime. Each part checks its own slot values
+// and returns a verdict. Parts independently flip green ✓ as
+// they pass, so kids get incremental wins.
 
 const TM_URL_RE = /^https:\/\/teachablemachine\.withgoogle\.com\/models\/[A-Za-z0-9_-]+\/?$/;
-const LOCAL_MODEL_RE = /^\.\/model\/?$/;
-// Trim before testing — students with trailing whitespace shouldn't get stuck.
+const LOCAL_MODEL_RE = /^\.\/[\w\-\/]+\/?$/;
+function isTMUrl(v) { return TM_URL_RE.test(v); }
+function isLocalPath(v) { return LOCAL_MODEL_RE.test(v); }
 function isAcceptedModelUrl(u) {
   const v = String(u || '').trim();
-  return TM_URL_RE.test(v) || LOCAL_MODEL_RE.test(v);
+  return isTMUrl(v) || isLocalPath(v);
 }
 
-// Holds the most-recently-compiled script. Null until a compile passes.
+// Holds the value of p1_url from the most recent successful Part 1
+// compile so Task 7's live-loop side-effect only reloads the model
+// when the URL changes.
 let liveScript = null;
 
-// Shared Python runner with JS-visible error surfacing.
-function runPythonSafe(source) {
-  try {
-    pyodide.runPython(source);
+// --- Part 1 ---
+function validatePart1() {
+  const v = (slotValues.p1_url || '').trim();
+  if (!v) {
+    return { ok: false, failedSlot: 'p1_url', reason: 'empty',
+             errorMsg: 'MODEL_URL is empty — pick one of the three paths from the notes.' };
+  }
+  if (v === './backup/model_v2/' || v === './model_redteam/') {
+    return { ok: false, failedSlot: 'p1_url', reason: 'wrong-candidate',
+             errorMsg: `${v} is one of the candidates but not ours. Re-read the comment — which one is the real build?` };
+  }
+  if (!isTMUrl(v) && !isLocalPath(v)) {
+    return { ok: false, failedSlot: 'p1_url', reason: 'bad-shape',
+             errorMsg: `That doesn't look like a Teachable Machine link or one of the three paths in the comment.` };
+  }
+  return { ok: true };
+}
+
+// --- Part 2 ---
+function validatePart2() {
+  for (const slot of PART_SLOTS[2]) {
+    const v = (slotValues[slot] || '').trim();
+    if (!v) {
+      return { ok: false, failedSlot: slot, reason: 'empty',
+               errorMsg: 'Every codename needs a label — at least one is still blank.' };
+    }
+    if (v.length > 40) {
+      return { ok: false, failedSlot: slot, reason: 'too-long',
+               errorMsg: 'Labels should be short — under 40 characters.' };
+    }
+  }
+  return { ok: true };
+}
+
+// --- Part 3 ---
+function validatePart3() {
+  const cls  = (slotValues.p3_class || '').trim();
+  const cmd1 = (slotValues.p3_cmd1  || '').trim();
+  const cmd2 = (slotValues.p3_cmd2  || '').trim();
+
+  if (!cls) {
+    return { ok: false, failedSlot: 'p3_class', reason: 'empty-class',
+             errorMsg: 'The other paying-attention codename is blank.' };
+  }
+  if (cls === 'cls_alpha') {
+    return { ok: false, failedSlot: 'p3_class', reason: 'dup-alpha',
+             errorMsg: 'cls_alpha is already on that line — you need the OTHER paying-attention class.' };
+  }
+  if (!/^cls_[a-z]+$/.test(cls)) {
+    return { ok: false, failedSlot: 'p3_class', reason: 'not-codename',
+             errorMsg: `"${cls}" isn't one of the codenames. Use one of the five from the System Card.` };
+  }
+  if (cls !== 'cls_beta') {
+    return { ok: false, failedSlot: 'p3_class', reason: 'wrong-class',
+             errorMsg: `${cls} isn't a paying-attention class. Re-read the DESCRIPTIONS — which one means "forward-facing" without any extra signal?` };
+  }
+
+  if (!cmd1 || !cmd2) {
+    return { ok: false, failedSlot: !cmd1 ? 'p3_cmd1' : 'p3_cmd2', reason: 'empty-cmd',
+             errorMsg: 'Both helper-name blanks need to be filled in.' };
+  }
+  const cmds = new Set([cmd1, cmd2]);
+  if (!cmds.has('show_alert') || !cmds.has('play_beep')) {
+    let bad = 'p3_cmd1';
+    if (cmd1 === 'show_alert' || cmd1 === 'play_beep') bad = 'p3_cmd2';
+    return { ok: false, failedSlot: bad, reason: 'wrong-helper',
+             errorMsg: "One of the helper names doesn't match the list at the top of Part 3. Re-read which helper does what." };
+  }
+  return { ok: true };
+}
+
+// Main compile entry point.
+//   { ok: true } when ALL three parts pass.
+//   { ok: false, failedPart, failedSlot, reason, errorMsg } otherwise.
+// Per-part state is updated regardless — partial green pills survive.
+async function compileScript() {
+  const validators = [validatePart1, validatePart2, validatePart3];
+  const results = validators.map(fn => fn());
+
+  const firstFail = results.findIndex(r => !r.ok);
+
+  for (let i = 0; i < 3; i++) {
+    const part = i + 1;
+    taskState[part].passed = results[i].ok;
+    if (results[i].ok) {
+      taskState[part].attempts = 0;
+    } else if (i === firstFail) {
+      // Only bump attempts for the part that will get a hint shown.
+      // Other failing parts keep their counter so a student reaching
+      // them later gets a fresh tier-1 nudge first.
+      taskState[part].attempts++;
+    }
+  }
+
+  if (firstFail < 0) {
+    liveScript = slotValues.p1_url.trim();
     return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err.message };
   }
+  return {
+    ok: false,
+    failedPart: firstFail + 1,
+    ...results[firstFail]
+  };
 }
 
-// Main compile entry point. Returns:
-//   { ok: true, firstRun: bool }
-//   { ok: false, failedTask: 1|2|3, reason: string, errorMsg?: string }
-async function compileScript(source) {
-  if (!pyodideReady) {
-    return { ok: false, failedTask: 1, reason: 'pyodide-not-ready',
-             errorMsg: 'Python runtime still loading — try again in a moment.' };
-  }
-
-  // Clear student-owned globals so values from a previous compile
-  // don't leak into this one. Specifically: if a previous compile
-  // set MODEL_URL successfully and this compile syntax-errors on
-  // the URL line, the stale value would mask the real failure.
-  try {
-    pyodide.runPython([
-      'for _k in ("MODEL_URL", "average", "total"):',
-      '    globals().pop(_k, None)',
-      'globals().pop("_k", None)'
-    ].join('\n'));
-  } catch (_) {}
-
-  // --- Task 1: extract MODEL_URL ---
-  // We run just the user's code with everything else stubbed out
-  // so a half-finished Task 2 doesn't throw before we can read the URL.
-  installRecorders();
-  pyodide.globals.set('history', pyodide.toPy(makeTestHistory(0.50)));
-  const earlyRun = runPythonSafe(source);
-  if (!earlyRun.ok) {
-    // Attribute the error to the right task. Don't rely on pyodide
-    // globals (a syntax error leaves them unset). Statically extract
-    // the URL from the source. If it matches the accepted shape,
-    // Task 1 is fine and the error is in Task 2+.
-    const staticMatch = source.match(/MODEL_URL\s*=\s*"([^"\n]*)"/);
-    const staticUrl = staticMatch ? staticMatch[1] : '';
-    restoreHelpers();
-    const failedTask = (staticUrl && isAcceptedModelUrl(staticUrl)) ? 2 : 1;
-    return { ok: false, failedTask, reason: 'syntax-or-runtime', errorMsg: earlyRun.error };
-  }
-  let modelUrl = '';
-  try {
-    modelUrl = String(pyodide.globals.get('MODEL_URL') || '');
-  } catch (_) { modelUrl = ''; }
-  if (!modelUrl || !isAcceptedModelUrl(modelUrl)) {
-    restoreHelpers();
-    return { ok: false, failedTask: 1, reason: 'bad-url',
-             errorMsg: modelUrl ? `That path isn't the real model. Try one of the three candidates in the comments.`
-                                : 'MODEL_URL is empty — pick one of the three paths.' };
-  }
-
-  // --- Task 2: rolling average correctness ---
-  // Re-run against a fresh 0.47 test history and check show_average
-  // was called exactly once with ~0.47.
-  const TARGET2 = 0.47;
-  const log2 = installRecorders();
-  pyodide.globals.set('history', pyodide.toPy(makeTestHistory(TARGET2)));
-  const run2 = runPythonSafe(source);
-  if (!run2.ok) {
-    restoreHelpers();
-    return { ok: false, failedTask: 2, reason: 'runtime',
-             errorMsg: run2.error };
-  }
-  const avgCalls = log2.filter(c => c[0] === 'show_average');
-  if (avgCalls.length === 0) {
-    restoreHelpers();
-    return { ok: false, failedTask: 2, reason: 'show-average-not-called',
-             errorMsg: 'show_average(n) was not called. Did you forget to call it?' };
-  }
-  const lastAvg = avgCalls[avgCalls.length - 1][1];
-  if (!Number.isFinite(lastAvg) || Math.abs(lastAvg - TARGET2) > 0.01) {
-    restoreHelpers();
-    return { ok: false, failedTask: 2, reason: 'wrong-average',
-             errorMsg: `show_average was called with ${lastAvg}, expected ${TARGET2}.` };
-  }
-
-  // Task 2 passed. Check whether Task 3 has been attempted:
-  // "not attempted" = neither show_alert nor clear_alert was called.
-  // --- Task 3: alert-triggering scenarios ---
-  // Scenario A: average 0.30 → expect show_alert + play_beep.
-  // Scenario B: average 0.70 → expect clear_alert (no show_alert).
-  // If neither scenario calls any alert helper at all, Task 3 is
-  // considered "not started" and we pass overall with Task 3 open.
-  const logLow = installRecorders();
-  pyodide.globals.set('history', pyodide.toPy(makeTestHistory(0.30)));
-  const runLow = runPythonSafe(source);
-  if (!runLow.ok) {
-    restoreHelpers();
-    return { ok: false, failedTask: 3, reason: 'runtime',
-             errorMsg: runLow.error };
-  }
-
-  const logHigh = installRecorders();
-  pyodide.globals.set('history', pyodide.toPy(makeTestHistory(0.70)));
-  const runHigh = runPythonSafe(source);
-  if (!runHigh.ok) {
-    restoreHelpers();
-    return { ok: false, failedTask: 3, reason: 'runtime',
-             errorMsg: runHigh.error };
-  }
-
-  const lowCalled  = logLow.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert' || c[0] === 'play_beep');
-  const highCalled = logHigh.some(c => c[0] === 'show_alert' || c[0] === 'clear_alert' || c[0] === 'play_beep');
-  const task3Started = lowCalled || highCalled;
-
-  if (task3Started) {
-    const lowHasAlert = logLow.some(c => c[0] === 'show_alert');
-    const lowHasBeep  = logLow.some(c => c[0] === 'play_beep');
-    const highHasClear = logHigh.some(c => c[0] === 'clear_alert');
-    const highHasAlert = logHigh.some(c => c[0] === 'show_alert');
-    if (!lowHasAlert) {
-      restoreHelpers();
-      return { ok: false, failedTask: 3, reason: 'low-no-alert',
-               errorMsg: 'When the average is below 0.5, your code should call show_alert().' };
-    }
-    if (!lowHasBeep) {
-      restoreHelpers();
-      return { ok: false, failedTask: 3, reason: 'low-no-beep',
-               errorMsg: 'When the average is below 0.5, your code should also call play_beep().' };
-    }
-    if (highHasAlert || !highHasClear) {
-      restoreHelpers();
-      return { ok: false, failedTask: 3, reason: 'high-wrong',
-               errorMsg: 'When the average is above 0.5, your code should call clear_alert() (and not show_alert()).' };
-    }
-  }
-
-  // --- All checks passed. Mark state, restore helpers, return. ---
-  restoreHelpers();
-  taskState[1].passed = true;
-  taskState[2].passed = true;
-  taskState[3].passed = task3Started;
-  // Reset attempts counters for passed tasks
-  taskState[1].attempts = 0;
-  taskState[2].attempts = 0;
-  if (task3Started) taskState[3].attempts = 0;
-  renderProgressPills();
-  liveScript = source;
-  return { ok: true, task3Started };
+// ============================================================
+// UTILITIES
+// ============================================================
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-// Heuristic: if a Python error fires and we don't know which task
-// was responsible, attribute to the earliest unpassed task so the
-// hint system targets something useful.
+// ============================================================
+// STUDENT LABELS — Part 2 outputs, shown on LIVE MODEL prediction bars
+// ============================================================
+// classLabels is keyed by codename; renderPredictionBars reads it
+// each frame and appends "· <label>" after the codename when set.
+const classLabels = {
+  cls_alpha: null, cls_beta: null, cls_gamma: null,
+  cls_delta: null, cls_epsilon: null
+};
+
+function applyStudentLabels() {
+  classLabels.cls_alpha   = (slotValues.p2_alpha   || '').trim() || null;
+  classLabels.cls_beta    = (slotValues.p2_beta    || '').trim() || null;
+  classLabels.cls_gamma   = (slotValues.p2_gamma   || '').trim() || null;
+  classLabels.cls_delta   = (slotValues.p2_delta   || '').trim() || null;
+  classLabels.cls_epsilon = (slotValues.p2_epsilon || '').trim() || null;
+}
+
+function clearStudentLabels() {
+  for (const k of Object.keys(classLabels)) classLabels[k] = null;
+}
+
+// (dead) Kept as a stub so any latent reference does not throw.
 function inferFailedTask(source, errMsg) {
   if (!taskState[1].passed) return 1;
   if (!taskState[2].passed) return 2;
@@ -1835,60 +1962,65 @@ function pushStudentHistory(predictionArray) {
 }
 
 // ============================================================
-// LIVE PER-FRAME EXECUTION
+// STUDENT ALERT LOGIC — replaces the per-frame Python runner.
 // ============================================================
+// Once Part 3 passes, this runs every frame and drives the alert
+// overlay + beep directly from JS using the filled-in slot values.
+// The student's code is "cosplay" — the real side-effects happen
+// here, but the semantics mirror their Python exactly.
 
-let liveErrorStreak = 0;
-let livePaused = false;
-let fpsSamples = [];   // timestamps of the last second of frames
-let _lastStdoutAvgAt = 0;
+let fpsSamples = [];            // frame timestamps, last second
+let _lastStdoutAvgAt = 0;       // throttle for STDOUT average-echo
+let lastLoadedModelUrl = null;  // MODEL_URL value we last loaded
 
-// URL tracking for student MODEL_URL reload
-let lastLoadedModelUrl = null;
+function runStudentAlertLogic(topClass) {
+  if (!taskState[3].passed) return;
+  const other = (slotValues.p3_class || '').trim();
+  const attentive = new Set(['cls_alpha', other]);
+  if (!attentive.has(topClass)) {
+    showAlert();
+    playBeep();
+  } else {
+    clearAlert();
+  }
+}
 
 function executeLiveFrame(predictionsHistory) {
-  if (!liveScript || livePaused || !pyodideReady) return;
+  const now = performance.now();
 
-  // Push current history into Python globals.
-  pyodide.globals.set('history', pyodide.toPy(predictionsHistory));
-
-  try {
-    pyodide.runPython(liveScript);
-    liveErrorStreak = 0;
-
-    // Passive diagnostic line once per second so students have a
-    // visible trail of what their code is computing.
-    const now = performance.now();
-    if (now - _lastStdoutAvgAt > 1000) {
-      const currentAvg = document.getElementById('rolling-value').textContent;
-      if (currentAvg && currentAvg !== '—') {
-        logStdout(`average = ${currentAvg}`);
-      }
-      _lastStdoutAvgAt = now;
+  // Drive the student's alarm logic off the most-recent top class.
+  const latest = predictionsHistory[predictionsHistory.length - 1];
+  if (latest) {
+    let topClass = null;
+    let topP = -Infinity;
+    for (const cls of DEFAULT_CLASSES) {
+      const p = latest[cls] ?? 0;
+      if (p > topP) { topP = p; topClass = cls; }
     }
-
-    // Track FPS
-    fpsSamples.push(now);
-    fpsSamples = fpsSamples.filter(t => now - t < 1000);
-    updateFps(fpsSamples.length);
-  } catch (err) {
-    liveErrorStreak++;
-    if (liveErrorStreak === 1) {
-      logStdout(`runtime error: ${err.message.split('\n').pop()}`);
-    }
-    if (liveErrorStreak >= 3) {
-      livePaused = true;
-      updateCodeStatus('error', 'three consecutive errors — paused');
-      logStdout('> live loop paused after 3 consecutive errors. Fix and recompile.');
-    }
+    if (topClass) runStudentAlertLogic(topClass);
   }
+
+  // Passive STDOUT echo of the rolling average — once a second, if
+  // the rolling panel has a value — so kids see their tool working.
+  if (now - _lastStdoutAvgAt > 1000) {
+    const currentAvg = document.getElementById('rolling-value')?.textContent;
+    if (currentAvg && currentAvg !== '—') {
+      logStdout(`average = ${currentAvg}`);
+    }
+    _lastStdoutAvgAt = now;
+  }
+
+  // FPS meter in the status strip.
+  fpsSamples.push(now);
+  fpsSamples = fpsSamples.filter(t => now - t < 1000);
+  updateFps(fpsSamples.length);
 }
 
 function updateFps(fps) {
   const extra = document.getElementById('code-status-extra');
   if (!extra) return;
   const base = [1,2,3].map(t => taskState[t].passed ? '✓' : '○').join(' ');
-  extra.textContent = `tasks: ${base}   ·   ${fps} fps`;
+  extra.textContent = `parts: ${base}   ·   ${fps} fps`;
 }
 
 async function reloadStudentModel(url) {
@@ -1904,80 +2036,102 @@ async function reloadStudentModel(url) {
 }
 
 async function onCompileClick() {
-  const source = assembleSource();
-  const result = await compileScript(source);
+  const result = await compileScript();
+  renderProgressPills();
 
-  if (result.ok) {
-    // Reset the live-loop error state; the new script runs next frame.
-    liveErrorStreak = 0;
-    livePaused = false;
-    document.getElementById('hint-box').classList.remove('show');
-    logStdout(`> compile ok — tasks passed: ${
-      [1,2,3].filter(t => taskState[t].passed).map(t => `#${t}`).join(' ')
-    }`);
-    updateCodeStatus('live', `all 3 tasks: ${[1,2,3].map(t => taskState[t].passed ? '✓' : '○').join(' ')}`);
-    renderProgressPills();
-
-    // If MODEL_URL changed since last compile and it's a real TM URL,
-    // ask the existing loadModel() to (re)load it. The JS-side MODEL_URL
-    // global was set from a const before; we mutate a parallel let so the
-    // model-loading path picks up the student's value.
-    try {
-      const mu = String(pyodide.globals.get('MODEL_URL') || '').trim();
-      if (mu && mu !== lastLoadedModelUrl && isAcceptedModelUrl(mu)) {
-        lastLoadedModelUrl = mu;
-        window._studentModelUrl = mu;
-        logStdout(`> loading model from ${mu} …`);
+  // --- Part 1 side-effect: load the model if the URL changed ---
+  if (taskState[1].passed) {
+    const mu = (slotValues.p1_url || '').trim();
+    if (mu && mu !== lastLoadedModelUrl && isAcceptedModelUrl(mu)) {
+      lastLoadedModelUrl = mu;
+      window._studentModelUrl = mu;
+      logStdout(`> loading model from ${mu} …`);
+      try {
         await reloadStudentModel(mu);
         logStdout(`> model loaded`);
+      } catch (e) {
+        logStdout(`> model load failed: ${e.message}`);
       }
-    } catch (e) {
-      logStdout(`> model load failed: ${e.message}`);
     }
+  }
 
+  // --- Part 2 side-effect: apply student labels to the prediction bars ---
+  if (taskState[2].passed) {
+    applyStudentLabels();
+  } else {
+    clearStudentLabels();
+  }
+
+  // --- Part 3 side-effect: reset alert state if Part 3 broke ---
+  if (!taskState[3].passed) {
+    clearAlert();
+  }
+
+  if (result.ok) {
+    document.getElementById('hint-box').classList.remove('show');
+    logStdout(`> all three parts compiled — audit tool armed`);
+    updateCodeStatus('live', `parts: ${[1,2,3].map(t => '✓').join(' ')}`);
     return;
   }
 
-  // Failure: mark the failing task, bump its attempts counter, fire hint.
-  taskState[result.failedTask].passed = false;
-  taskState[result.failedTask].attempts++;
-  renderProgressPills();
-  updateCodeStatus('needs-compile', `Task ${result.failedTask}: ${result.reason}`);
+  // Failure: fire the hint for the first failing part.
+  const failedPart = result.failedPart;
+  updateCodeStatus('needs-compile', `Part ${failedPart}: ${result.reason}`);
+  const greenCount = [1,2,3].filter(t => taskState[t].passed).length;
+  if (greenCount > 0) {
+    logStdout(`> compiled ${greenCount}/3 parts — keep going`);
+  }
+  showPartHint(failedPart, taskState[failedPart].attempts, result.errorMsg, result.failedSlot);
 
-  // Hint system wiring — hooked up fully in Task 10; use a simple
-  // placeholder until then so COMPILE flow is testable now.
-  showTaskHint(result.failedTask, taskState[result.failedTask].attempts, result.errorMsg);
+  // Focus the failing slot so the student sees exactly where to fix.
+  if (result.failedSlot) {
+    const el = document.querySelector(`#code-program [data-slot="${result.failedSlot}"]`);
+    if (el) el.focus();
+  }
 }
 
-// Hardcoded per-task tier-1/2/3 fallback hints. Render instantly on
-// compile failure; the Claude-backed warmer hint swaps in if the API
-// responds before the student's next compile attempt.
+// ============================================================
+// HINT SYSTEM — 3-tier hardcoded + optional Claude-backed + history nav
+// ============================================================
+// HARDCODED_HINTS[part][tierIdx] renders instantly on compile failure.
+// fetchLLMHint swaps in a warmer Claude reply if it arrives before the
+// next compile. All hints shown for a part are pushed into hintHistory,
+// so students can flip back through earlier attempts with ◀ / ▶.
+
 const HARDCODED_HINTS = {
   1: [
-    `Paste your Teachable Machine share-link between the quotes on the <code>MODEL_URL</code> line. Have you copied it yet?`,
-    `Your URL should look like <code>https://teachablemachine.withgoogle.com/models/XXXXX/</code>. Check what's between the quotes.`,
-    `Replace the empty string so <code>MODEL_URL</code> equals your full Teachable Machine share-link, including the <code>https://</code> part.`
+    `The <code>MODEL_URL</code> line has three candidate paths in the comment above it. One of them is ours — pick that one and put it between the quotes.`,
+    `Re-read the three candidates. A/B/C look alike but one of them isn't a backup or a red-team build — it's just <code>./model/</code>-something plain.`,
+    `The real path is <code>./model/</code>. Paste that between the quotes.`
   ],
   2: [
-    `The rolling panel doesn't know your average yet. What helper do you need to call with your result?`,
-    `Inside your loop, pull out <code>frame["cls_alpha"]</code> and add it to a running total. After the loop, divide by <code>len(history)</code> and call <code>show_average(...)</code>.`,
-    `Here's the block: <code>total = 0</code>, then <code>for frame in history: total = total + frame["cls_alpha"]</code>, then <code>average = total / len(history)</code>, then <code>show_average(average)</code>.`
+    `Open the System Card and read §2 (Model Classes). Each codename has a DESCRIPTION — your job is to put your own short label next to the codename that matches. Whatever you type shows up on the LIVE MODEL tab.`,
+    `Five codenames, five labels, any plain-English words you want. Examples: <em>full focus</em>, <em>sorta looking</em>, <em>head turned</em>, <em>nobody there</em>, <em>in my face</em>. They're for YOU to keep track — not a test.`,
+    `You're over-thinking it. Type ANY short label into every empty blank — even placeholders like <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code>, <code>E</code> will pass. You can rewrite them once you start experimenting with the camera.`
   ],
   3: [
-    `Your alert code needs to know when to fire. What decides whether to call <code>show_alert</code>?`,
-    `Use an <code>if</code> statement to check whether <code>average</code> is less than <code>0.5</code>. Inside, call <code>show_alert()</code> and <code>play_beep()</code>. Use <code>else</code> for <code>clear_alert()</code>.`,
-    `<code>if average &lt; 0.5: show_alert(); play_beep()</code>, then <code>else: clear_alert()</code>.`
+    `Part 3 has a pattern already on screen: <code>!= "cls_alpha"</code>. You need the SECOND "paying attention" codename in the other slot, and the names of the two helpers that fire the red alarm. The helper list is at the top of Part 3.`,
+    `Re-read §2 of the System Card. cls_alpha is the "maximum attention" class — what's the OTHER class where the learner is facing forward? For the two helper blanks: one SHOWS the red overlay, one PLAYS the beep — check the names in the comments at the top of Part 3.`,
+    `The codename is <code>cls_beta</code>. The two helpers are <code>show_alert</code> and <code>play_beep</code> (in either order). Fill those three blanks in and compile.`
   ]
 };
 
-async function fetchLLMHint(task, studentCode, errorStatus, errorMsg, attempt) {
+// Per-part hint history. hintHistory[part] is an array of entries
+// { tierIdx, html, errorMsg }. hintCursor[part] is the index currently
+// shown; arrow buttons move the cursor without adding entries.
+const hintHistory = { 1: [], 2: [], 3: [] };
+const hintCursor  = { 1: -1, 2: -1, 3: -1 };
+// Which part's history is currently visible in the hint box.
+let currentHintPart = null;
+
+async function fetchLLMHint(part, slotsSnapshot, reason, errorMsg, attempt) {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 7000);
     const resp = await fetch('/api/hint', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task, studentCode, errorStatus, errorMsg, attempt }),
+      body: JSON.stringify({ part, slots: slotsSnapshot, reason, errorMsg, attempt }),
       signal: ctrl.signal
     });
     clearTimeout(timer);
@@ -1990,53 +2144,103 @@ async function fetchLLMHint(task, studentCode, errorStatus, errorMsg, attempt) {
   }
 }
 
-function renderHintBox(task, tierIdx, htmlBody) {
+// Render hintHistory[currentHintPart][hintCursor[currentHintPart]].
+function renderCurrentHint() {
+  const part = currentHintPart;
+  if (part == null) return;
+  const entries = hintHistory[part];
+  const idx = hintCursor[part];
+  const entry = entries[idx];
+  if (!entry) return;
+
   const box = document.getElementById('hint-box');
   const label = document.getElementById('hint-tier');
   const body = document.getElementById('hint-body');
   box.className = 'hint-box show error';
-  label.textContent = `HINT · TASK ${task} · LEVEL ${tierIdx + 1} of 3`;
-  body.innerHTML = htmlBody;
+
+  const total = entries.length;
+  const tierText = entry.tierIdx == null
+    ? "HERE'S THE ANSWER"
+    : `LEVEL ${Math.min(entry.tierIdx + 1, 3)} of 3`;
+  const navText = total > 1 ? ` · HINT ${idx + 1} of ${total}` : '';
+  label.innerHTML = `HINT · PART ${part} · ${tierText}${navText}
+    <span style="float:right; margin-left:12px;">
+      <button class="hint-nav-btn" id="hint-prev" ${idx <= 0 ? 'disabled' : ''} aria-label="Previous hint">◀</button>
+      <button class="hint-nav-btn" id="hint-next" ${idx >= total - 1 ? 'disabled' : ''} aria-label="Next hint">▶</button>
+    </span>`;
+
+  body.innerHTML = entry.html;
+  // Wire nav buttons (re-wired each render since innerHTML replaces them).
+  const prev = document.getElementById('hint-prev');
+  const next = document.getElementById('hint-next');
+  if (prev) prev.addEventListener('click', () => {
+    if (hintCursor[part] > 0) { hintCursor[part]--; renderCurrentHint(); }
+  });
+  if (next) next.addEventListener('click', () => {
+    if (hintCursor[part] < hintHistory[part].length - 1) { hintCursor[part]++; renderCurrentHint(); }
+  });
 }
 
-// After 5 failed attempts on a task, render the canonical solution
-// with a "Paste this in" button instead of another nudge.
-function renderRevealCard(task) {
-  const box = document.getElementById('hint-box');
-  const label = document.getElementById('hint-tier');
-  const body = document.getElementById('hint-body');
-  box.className = 'hint-box show error';
-  label.textContent = `HINT · TASK ${task} · HERE'S THE ANSWER`;
-  const solution = TASK_SOLUTIONS[task] || '';
-  // Escape HTML so angle brackets etc. render literally.
-  const escaped = solution.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  body.innerHTML = `
-    <div style="margin-bottom:8px;">You've tried this a few times — here's the answer. Paste it into your Task ${task} slot, then press COMPILE.</div>
-    <pre style="background:rgba(120,220,160,0.08); border:1px dashed var(--accent); border-radius:3px; padding:8px 10px; margin:0 0 8px 0; font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.5; white-space:pre; overflow-x:auto;">${escaped}</pre>
-    <button class="primary" id="hint-paste-btn" style="padding:4px 12px; font-size:11px;">Paste it in for me</button>
+function pushHint(part, entry) {
+  hintHistory[part].push(entry);
+  hintCursor[part] = hintHistory[part].length - 1;
+  currentHintPart = part;
+  renderCurrentHint();
+}
+
+// Replace the most-recently-pushed entry for a part (used when the
+// LLM response arrives and we want to upgrade the hardcoded hint).
+function upgradeLatestHint(part, newHTML) {
+  const entries = hintHistory[part];
+  if (!entries.length) return;
+  entries[entries.length - 1].html = newHTML;
+  if (currentHintPart === part && hintCursor[part] === entries.length - 1) {
+    renderCurrentHint();
+  }
+}
+
+// After 4+ failed attempts on a slot-level part (1 or 3), show the
+// canonical answer with a "Paste it in" button. Part 2 has no canonical
+// answer — labels are student-picked.
+function renderRevealCard(part) {
+  if (part === 2) {
+    // Part 2 has no canonical — just encourage any non-empty input.
+    const body = `You've hit this a few times. Part 2 labels are totally up to you — even single letters like <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code>, <code>E</code> will pass. Fill every blank with anything at all, then compile.`;
+    pushHint(2, { tierIdx: null, html: body });
+    return;
+  }
+  const slots = PART_SLOTS[part].filter(s => SLOT_SOLUTIONS[s] != null);
+  const rows = slots.map(s => `<div><code>${s}</code> → <code>${SLOT_SOLUTIONS[s]}</code></div>`).join('');
+  const html = `
+    <div style="margin-bottom:8px;">Here are the answers for Part ${part}. Click the button to fill them in, then hit COMPILE.</div>
+    <div style="background:rgba(120,220,160,0.08); border:1px dashed var(--accent); border-radius:3px; padding:8px 10px; margin:0 0 8px 0; font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.6;">${rows}</div>
+    <button class="primary" id="hint-paste-btn" style="padding:4px 12px; font-size:11px;">Paste them in for me</button>
   `;
+  pushHint(part, { tierIdx: null, html });
   const btn = document.getElementById('hint-paste-btn');
-  if (btn) btn.addEventListener('click', () => { fillSlot(task, solution); });
+  if (btn) btn.addEventListener('click', () => {
+    for (const s of slots) fillSlot(s, SLOT_SOLUTIONS[s]);
+  });
 }
 
-function showTaskHint(task, attempt, errorMsg) {
-  // Attempt 5+: reveal the answer. No LLM call, no tier ladder.
-  if (attempt >= 5) { renderRevealCard(task); return; }
+function showPartHint(part, attempt, errorMsg, failedSlot) {
+  if (attempt >= 4) { renderRevealCard(part); return; }
 
   const tierIdx = Math.min(Math.max(0, attempt - 1), 2);
-  const hardcoded = HARDCODED_HINTS[task][tierIdx];
-  const instantBody = errorMsg
-    ? `${hardcoded}<div style="margin-top:8px;color:var(--text-muted);font-size:11px;">${errorMsg}</div>`
-    : hardcoded;
-  renderHintBox(task, tierIdx, instantBody);
+  const hardcoded = HARDCODED_HINTS[part][tierIdx];
+  const detailLine = errorMsg
+    ? `<div style="margin-top:8px;color:var(--text-muted);font-size:11px;">${errorMsg}</div>`
+    : '';
+  pushHint(part, { tierIdx, html: hardcoded + detailLine, errorMsg });
 
-  const source = assembleSource();
+  // Best-effort warmer hint from Claude — swap in if it arrives before
+  // the student's next compile.
+  const snapshot = Object.assign({}, slotValues);
   const currentAttempt = attempt;
-  fetchLLMHint(task, source, null, errorMsg, currentAttempt).then(llmHTML => {
+  fetchLLMHint(part, snapshot, errorMsg || '', errorMsg, currentAttempt).then(llmHTML => {
     if (!llmHTML) return;
-    // Only swap in if state hasn't moved on.
-    if (taskState[task].attempts === currentAttempt && !taskState[task].passed) {
-      renderHintBox(task, tierIdx, llmHTML);
+    if (taskState[part].attempts === currentAttempt && !taskState[part].passed) {
+      upgradeLatestHint(part, llmHTML + detailLine);
     }
   });
 }
@@ -2050,11 +2254,13 @@ document.getElementById('code-program').addEventListener('keydown', (e) => {
   }
 });
 
-// Clicking a progress pill focuses that task's editable slot.
+// Clicking a progress pill scrolls to the first slot of that part.
 document.querySelectorAll('.code-progress .pill').forEach(p => {
   p.addEventListener('click', () => {
-    const taskId = p.dataset.task;
-    const slot = document.querySelector(`#code-program [data-slot="${taskId}"]`);
+    const part = p.dataset.task;
+    const firstSlot = (PART_SLOTS[part] || [])[0];
+    if (!firstSlot) return;
+    const slot = document.querySelector(`#code-program [data-slot="${firstSlot}"]`);
     if (slot) {
       slot.focus();
       slot.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2070,14 +2276,18 @@ function onResetConfirmYes() {
   resetSlots();
   document.getElementById('reset-confirm').classList.remove('show');
   document.getElementById('hint-box').classList.remove('show');
-  for (const t of [1, 2, 3]) { taskState[t] = { passed: false, attempts: 0 }; }
+  for (const t of [1, 2, 3]) {
+    taskState[t] = { passed: false, attempts: 0 };
+    hintHistory[t] = [];
+    hintCursor[t] = -1;
+  }
+  currentHintPart = null;
   liveScript = null;
-  livePaused = false;
-  liveErrorStreak = 0;
   lastLoadedModelUrl = null;
   window._studentModelUrl = null;
   renderRollingAverage(null);
   clearAlert();
+  clearStudentLabels();
   renderProgressPills();
   updateCodeStatus('needs-compile', 'template restored — ready to compile');
   logStdout('> reset: template restored');
@@ -2119,6 +2329,77 @@ document.querySelectorAll('.tab').forEach(btn => {
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
   });
 });
+
+// ============================================================
+// CLASSIFIER GATE — student must identify the model classifier
+// string from the deployment config before the live audit unlocks.
+// ============================================================
+const EXPECTED_CLASSIFIER = "hackley-attention-detector-v0.01";
+const CLASSIFIER_STORAGE_KEY = "audit:classifierVerified:v1";
+let classifierVerified = false;
+
+function normalizeClassifier(s) {
+  return (s || "")
+    .trim()
+    // strip matching outer single or double quotes
+    .replace(/^["']|["']$/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function unlockClassifierGate() {
+  classifierVerified = true;
+  const gate = document.getElementById('classifier-gate');
+  const grid = document.getElementById('live-grid');
+  const fb = document.getElementById('classifier-feedback');
+  const sub = document.getElementById('header-sub');
+  if (gate) {
+    gate.classList.add('verified');
+    gate.innerHTML =
+      '<span class="lock-icon">✓</span>' +
+      '<div class="gate-body">' +
+      '<div class="gate-label" style="color:var(--accent);">CLASSIFIER VERIFIED</div>' +
+      '<div class="gate-help" style="margin-bottom:0;">Audit session unlocked.</div>' +
+      '</div>';
+  }
+  if (grid) grid.classList.remove('gate-locked');
+  if (fb) fb.textContent = '';
+  if (sub) sub.textContent = '[classifier verified]';
+}
+
+function handleClassifierSubmit() {
+  const input = document.getElementById('classifier-input');
+  const fb = document.getElementById('classifier-feedback');
+  const entered = normalizeClassifier(input && input.value);
+  if (entered === EXPECTED_CLASSIFIER) {
+    try { localStorage.setItem(CLASSIFIER_STORAGE_KEY, '1'); } catch (_) {}
+    unlockClassifierGate();
+    logEvent('Classifier verified — live audit unlocked', 'ok');
+  } else {
+    if (fb) {
+      fb.textContent = entered
+        ? 'classifier string not recognized — check the deployment configuration'
+        : 'classifier string required';
+    }
+    if (input) { input.focus(); input.select(); }
+  }
+}
+
+(function initClassifierGate() {
+  const submit = document.getElementById('classifier-submit');
+  const input = document.getElementById('classifier-input');
+  if (!submit || !input) return;
+  submit.addEventListener('click', handleClassifierSubmit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleClassifierSubmit(); }
+  });
+  // Restore previous verification (don't re-gate every reload once solved).
+  try {
+    if (localStorage.getItem(CLASSIFIER_STORAGE_KEY) === '1') {
+      unlockClassifierGate();
+    }
+  } catch (_) {}
+})();
 
 // ============================================================
 // LOGGING
@@ -2167,8 +2448,12 @@ function renderPredictionBars(predictions) {
     const row = document.createElement('div');
     row.className = 'pred-row' + (p.className === topName ? ' top' : '');
     const pct = (Math.min(1, p.probability) * 100).toFixed(1);
+    const rawLabel = classLabels && classLabels[p.className];
+    const label = rawLabel
+      ? ` <span class="student-label">· ${escapeHtml(rawLabel)}</span>`
+      : '';
     row.innerHTML = `
-      <div class="name">${p.className}</div>
+      <div class="name">${p.className}${label}</div>
       <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
       <div class="pct">${pct}%</div>
     `;
@@ -2177,6 +2462,17 @@ function renderPredictionBars(predictions) {
 
   const topEl = document.getElementById('top-class');
   const confEl = document.getElementById('top-conf');
+
+  // Idle render (all probabilities 0 — called during init before inference starts).
+  // Keep INSTANT + 10-SECOND VERDICT blank and skip the ring-buffer push so the
+  // verdict panel doesn't falsely lock onto the first codename in the list.
+  if (topConf === 0) {
+    topEl.textContent = '';
+    topEl.classList.remove('below-threshold');
+    confEl.textContent = 'awaiting input';
+    return;
+  }
+
   const detected = topConf >= CONFIDENCE_THRESHOLD;
   topEl.textContent = topName;
   topEl.classList.toggle('below-threshold', !detected);
