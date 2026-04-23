@@ -2029,6 +2029,9 @@ async function onCompilePart(partNum) {
   if (partNum === 2) {
     if (taskState[2].passed) applyStudentLabels();
     else clearStudentLabels();
+    // Force an immediate bar re-render so the labels appear even when
+    // the camera isn't running yet.
+    renderPredictionBars(classNames.map(c => ({ className: c, probability: 0 })));
   }
 
   // --- Part 3 side-effect: clear alert state when Part 3 is broken.
