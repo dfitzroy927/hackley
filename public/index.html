@@ -1516,12 +1516,12 @@ if top_class != "cls_alpha" and top_class != "`
   { type: 'code', text: `":
     `
   },
-  { type: 'slot', id: 'p3_cmd1',  part: 3, kind: 'inline', placeholder: 'which helper?', initial: '' },
-  { type: 'code', text: `()
+  { type: 'slot', id: 'p3_cmd1',  part: 3, kind: 'inline', placeholder: 'which helper()?', initial: '' },
+  { type: 'code', text: `
     `
   },
-  { type: 'slot', id: 'p3_cmd2',  part: 3, kind: 'inline', placeholder: 'which helper?', initial: '' },
-  { type: 'code', text: `()
+  { type: 'slot', id: 'p3_cmd2',  part: 3, kind: 'inline', placeholder: 'which helper()?', initial: '' },
+  { type: 'code', text: `
 else:
     clear_alert()
 `
@@ -1541,8 +1541,8 @@ const slotValues = {
 const SLOT_SOLUTIONS = {
   p1_url: 'hackley-attention-detector-v0.01',
   p3_class: 'cls_beta',
-  p3_cmd1: 'show_alert',
-  p3_cmd2: 'play_beep'
+  p3_cmd1: 'show_alert()',
+  p3_cmd2: 'play_beep()'
 };
 
 // Which slots belong to which part (for validation + hint targeting).
@@ -1843,14 +1843,29 @@ function validatePart3() {
 
   if (!cmd1 || !cmd2) {
     return { ok: false, failedSlot: !cmd1 ? 'p3_cmd1' : 'p3_cmd2', reason: 'empty-cmd',
-             errorMsg: 'Both helper-name blanks need to be filled in.' };
+             errorMsg: 'Both helper blanks need to be filled in — include the parentheses, like show_alert().' };
   }
-  const cmds = new Set([cmd1, cmd2]);
-  if (!cmds.has('show_alert') || !cmds.has('play_beep')) {
+  const normalize = (s) => s.replace(/\s+/g, '');
+  // Accept bare-name fallbacks too so a kid who forgets parens gets a
+  // targeted nudge instead of a generic "wrong helper" message.
+  const withoutParens = (s) => s.replace(/\(\s*\)$/, '');
+  const n1 = normalize(cmd1);
+  const n2 = normalize(cmd2);
+  const missingParens = (s) => /^(show_alert|play_beep)$/.test(withoutParens(s)) && !/\(\s*\)$/.test(s);
+  if (missingParens(n1)) {
+    return { ok: false, failedSlot: 'p3_cmd1', reason: 'missing-parens',
+             errorMsg: `Add the parentheses — calling a helper in Python looks like ${withoutParens(n1)}().` };
+  }
+  if (missingParens(n2)) {
+    return { ok: false, failedSlot: 'p3_cmd2', reason: 'missing-parens',
+             errorMsg: `Add the parentheses — calling a helper in Python looks like ${withoutParens(n2)}().` };
+  }
+  const cmds = new Set([n1, n2]);
+  if (!cmds.has('show_alert()') || !cmds.has('play_beep()')) {
     let bad = 'p3_cmd1';
-    if (cmd1 === 'show_alert' || cmd1 === 'play_beep') bad = 'p3_cmd2';
+    if (n1 === 'show_alert()' || n1 === 'play_beep()') bad = 'p3_cmd2';
     return { ok: false, failedSlot: bad, reason: 'wrong-helper',
-             errorMsg: "One of the helper names doesn't match the list at the top of Part 3. Re-read which helper does what." };
+             errorMsg: "One of the helper calls doesn't match the list at the top of Part 3. Re-read which helper does what — and include the parentheses." };
   }
   return { ok: true };
 }
@@ -2102,7 +2117,7 @@ const HARDCODED_HINTS = {
   3: [
     `Part 3 has a pattern already on screen: <code>!= "cls_alpha"</code>. You need the SECOND "paying attention" codename in the other slot, and the names of the two helpers that fire the red alarm. The helper list is at the top of Part 3.`,
     `Re-read §2 of the System Card. cls_alpha is the "maximum attention" class — what's the OTHER class where the learner is facing forward? For the two helper blanks: one SHOWS the red overlay, one PLAYS the beep — check the names in the comments at the top of Part 3.`,
-    `The codename is <code>cls_beta</code>. The two helpers are <code>show_alert</code> and <code>play_beep</code> (in either order). Fill those three blanks in and compile.`
+    `The codename is <code>cls_beta</code>. The two helper calls are <code>show_alert()</code> and <code>play_beep()</code> (in either order — and don't forget the parentheses). Fill those three blanks in and compile.`
   ]
 };
 
