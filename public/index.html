@@ -1153,7 +1153,7 @@
         <div class="rolling-panel" id="rolling-panel">
           <div class="panel-label">ROLLING ATTENTION</div>
           <div class="rolling-value dim" id="rolling-value">—</div>
-          <div class="rolling-caption" id="rolling-caption">waiting for your code</div>
+          <div class="rolling-caption" id="rolling-caption">start the camera</div>
         </div>
       </div>
 
@@ -1495,6 +1495,30 @@ LABELS = {
   { type: 'slot', id: 'p2_epsilon', part: 2, kind: 'inline', placeholder: 'your label', initial: '' },
   { type: 'code', text: `",
 }
+
+
+# ------------------------------------------------------------
+# The audit loop (provided — you don't have to write this)
+# ------------------------------------------------------------
+# This is the main loop that actually runs the classifier.
+# It's shown here so you can see how the pieces connect.
+# The app runs this for you every ~0.1s while the camera is on.
+
+history = []
+
+while camera.is_running:
+    frame = camera.capture()
+    prediction = model.predict(frame)          # {"cls_alpha": 0.74, ...}
+    history.append(prediction)                 # keep last 20 frames
+    if len(history) > 20:
+        history.pop(0)
+
+    # Rolling 20-frame average of cls_alpha confidence
+    avg_alpha = sum(f["cls_alpha"] for f in history) / len(history)
+    show_average(avg_alpha)
+
+    # Pick the highest-confidence class for THIS frame
+    top_class = max(prediction, key=prediction.get)
 
 
 # ------------------------------------------------------------
@@ -1975,6 +1999,15 @@ function runStudentAlertLogic(topClass) {
 
 function executeLiveFrame(predictionsHistory) {
   const now = performance.now();
+
+  // Rolling 20-frame average of cls_alpha — driven by the app so
+  // the ROLLING ATTENTION panel is live from frame 1 without the
+  // student having to write anything.
+  if (predictionsHistory.length) {
+    let sum = 0;
+    for (const f of predictionsHistory) sum += (f.cls_alpha ?? 0);
+    renderRollingAverage(sum / predictionsHistory.length);
+  }
 
   // Drive the student's alarm logic off the most-recent top class.
   const latest = predictionsHistory[predictionsHistory.length - 1];
@@ -2516,7 +2549,7 @@ function renderRollingAverage(n) {
   if (n == null || Number.isNaN(Number(n))) {
     el.textContent = '—';
     el.classList.add('dim');
-    cap.textContent = 'waiting for your code';
+    cap.textContent = 'start the camera';
     return;
   }
   const clamped = Math.max(0, Math.min(1, Number(n)));
