@@ -1809,11 +1809,14 @@ function validatePart1() {
     return { ok: false, failedSlot: 'p1_url', reason: 'wrong-candidate',
              errorMsg: `${v} is one of the candidates but not ours. Re-read the comment — which one is the real build?` };
   }
-  if (!isTMUrl(v) && !isLocalPath(v)) {
-    return { ok: false, failedSlot: 'p1_url', reason: 'bad-shape',
-             errorMsg: `That doesn't look like a Teachable Machine link or one of the three paths in the comment.` };
-  }
-  return { ok: true };
+  // Accept the one real candidate (./model/ or ./model, trailing slash
+  // either way) OR a proper Teachable Machine share URL.
+  // Deliberately do NOT accept arbitrary ./foo/ paths — students are
+  // picking from the three candidates, not inventing new ones.
+  if (v === './model/' || v === './model') return { ok: true };
+  if (isTMUrl(v)) return { ok: true };
+  return { ok: false, failedSlot: 'p1_url', reason: 'bad-shape',
+           errorMsg: `That doesn't match any of the three candidate paths in the comment. Try copying one of them exactly.` };
 }
 
 // --- Part 2 ---
